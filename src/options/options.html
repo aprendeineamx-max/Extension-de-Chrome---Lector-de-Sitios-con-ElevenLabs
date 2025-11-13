@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Configuración · Phillips Voice Companion</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Configuración de APIs y preferencias</h1>
+      <p class="subtitle">
+        Ajusta tus credenciales y preferencias de voz, formato y proveedores.
+      </p>
+
+      <section>
+        <h2>ElevenLabs</h2>
+        <label>
+          API Key
+          <input id="elevenApiKey" type="text" />
+        </label>
+        <label>
+          Voz predeterminada
+          <input id="elevenVoiceId" type="text" />
+        </label>
+        <label>
+          Estabilidad
+          <input id="elevenStability" type="number" step="0.05" min="0" max="1" />
+        </label>
+        <label>
+          Similitud
+          <input id="elevenSimilarity" type="number" step="0.05" min="0" max="1" />
+        </label>
+        <label>
+          Estilo
+          <input id="elevenStyle" type="number" step="0.05" min="0" max="1" />
+        </label>
+        <label class="checkbox">
+          <input id="elevenSpeakerBoost" type="checkbox" />
+          Usar speaker boost
+        </label>
+      </section>
+
+      <section>
+        <h2>Groq / Modal</h2>
+        <label>
+          Endpoint por defecto
+          <input id="groqEndpoint" type="text" />
+        </label>
+        <label>
+          Model ID
+          <input id="groqModel" type="text" />
+        </label>
+        <label>
+          Temperatura
+          <input id="groqTemperature" type="number" step="0.05" min="0" max="2" />
+        </label>
+        <label>
+          Máximo de tokens
+          <input id="groqMaxTokens" type="number" min="1" max="4096" />
+        </label>
+        <label>
+          API Keys (una por línea)
+          <textarea id="groqApiKeys" rows="3"></textarea>
+        </label>
+      </section>
+
+      <section>
+        <h2>Speech-to-Text</h2>
+        <label>
+          Proveedor
+          <select id="sttProvider">
+            <option value="huggingface">Hugging Face (Whisper)</option>
+            <option value="elevenlabs">ElevenLabs Scribe</option>
+          </select>
+        </label>
+        <label>
+          Modelo / Voice ID (según proveedor)
+          <input id="sttModel" type="text" />
+        </label>
+        <label>
+          Idioma preferido (ISO)
+          <input id="sttLanguage" type="text" />
+        </label>
+        <label>
+          API Key Hugging Face
+          <input id="huggingFaceKey" type="text" />
+        </label>
+      </section>
+
+      <section>
+        <h2>Text-to-Speech</h2>
+        <label>
+          Formato (mp3, wav, ogg)
+          <input id="ttsFormat" type="text" />
+        </label>
+        <label>
+          Frecuencia de muestreo
+          <input id="ttsSampleRate" type="number" min="8000" max="48000" />
+        </label>
+      </section>
+
+      <section>
+        <h2>Descarga automática</h2>
+        <label class="checkbox">
+          <input id="enableAutoDownload" type="checkbox" />
+          Descargar automáticamente los audios generados
+        </label>
+        <label>
+          Carpeta de descarga (relativa al escritorio)
+          <input id="downloadPath" type="text" placeholder="Audios Generados por Extension" />
+          <small>Se creará en tu carpeta de Descargas si no se especifica otra ruta.</small>
+        </label>
+      </section>
+
+      <section>
+        <h2>Opciones experimentales</h2>
+        <label class="checkbox">
+          <input id="enableOpenRouter" type="checkbox" />
+          Activar integración con OpenRouter
+        </label>
+        <label class="checkbox">
+          <input id="enableN8N" type="checkbox" />
+          Activar webhook n8n
+        </label>
+      </section>
+
+      <div class="actions">
+        <button id="restoreDefaults">Restaurar valores por defecto</button>
+        <button id="saveConfig">Guardar cambios</button>
+      </div>
+    </main>
+
+    <div id="toast" class="hidden"></div>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>
+

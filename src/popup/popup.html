@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Phillips Voice Companion</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <img src="../../icons/icon48.png" alt="Phillips Voice Companion" />
+      <div>
+        <h1>Phillips Voice Companion</h1>
+        <p>Lectura inteligente, resúmenes y conversación con tu sitio.</p>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Lectura con ElevenLabs</h2>
+        <div class="field-group">
+          <label for="voiceSelect">Voz</label>
+          <select id="voiceSelect"></select>
+          <button id="refreshVoices" title="Actualizar voces">↻</button>
+        </div>
+        <div class="field-group">
+          <label for="formatSelect">Formato de audio</label>
+          <select id="formatSelect">
+            <option value="mp3">MP3</option>
+            <option value="wav">WAV</option>
+            <option value="ogg">OGG</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="toneSelect">Tono</label>
+          <select id="toneSelect">
+            <option value="informativo">Informativo</option>
+            <option value="alegre">Alegre</option>
+            <option value="narrativo">Narrativo</option>
+            <option value="podcast">Podcast</option>
+            <option value="dramatico">Dramático</option>
+            <option value="relajado">Relajado</option>
+          </select>
+        </div>
+        <div class="field-group stacked">
+          <label for="speedRange">Velocidad <span id="speedValue">1.0x</span></label>
+          <input type="range" id="speedRange" min="0.6" max="1.6" step="0.05" value="1" />
+        </div>
+        <div class="field-group toggles">
+          <label class="checkbox">
+            <input type="checkbox" id="skipCodeToggle" />
+            No leer bloques de código
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" id="skipUrlsToggle" />
+            Omitir URLs y enlaces
+          </label>
+        </div>
+        <div class="actions">
+          <button id="readPage">Leer página completa</button>
+          <button id="readSelection">Leer selección</button>
+          <button id="readCustom">Leer texto personalizado</button>
+        </div>
+        <textarea id="customText" rows="4" placeholder="Pega aquí el texto a leer..."></textarea>
+        <div id="audioResult" class="card hidden">
+          <div class="card-header">
+            <span>Audio generado</span>
+            <button id="downloadAudio">Descargar</button>
+          </div>
+          <audio id="audioPlayer" controls></audio>
+        </div>
+      </section>
+
+      <section>
+        <h2>Gestión de voces</h2>
+        <div class="voice-actions">
+          <button id="openCreateVoice">Crear voz sintética</button>
+          <button id="openCloneVoice">Clonar voz desde audio</button>
+        </div>
+        <div id="voiceList" class="card"></div>
+      </section>
+
+      <section>
+        <h2>Resumen asistido (Groq)</h2>
+        <div class="actions">
+          <button id="summarizePage">Resumir página</button>
+          <button id="summarizeSelection">Resumir selección</button>
+        </div>
+        <textarea id="summaryOutput" rows="6" placeholder="Aquí aparecerá el resumen..."></textarea>
+        <div class="actions">
+          <button id="playSummary">Escuchar resumen</button>
+          <button id="copySummary">Copiar</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Hablar con el sitio</h2>
+        <div id="conversationHistory" class="card slim"></div>
+        <textarea id="conversationInput" rows="3" placeholder="Escribe tu mensaje..."></textarea>
+        <div class="actions">
+          <button id="sendMessage">Enviar</button>
+          <button id="micToggle">🎤 Grabar</button>
+          <button id="resetConversation">Reiniciar</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Audios generados</h2>
+        <div id="generatedAudios" class="card history"></div>
+      </section>
+    </main>
+
+    <dialog id="createVoiceDialog">
+      <form method="dialog">
+        <h3>Nueva voz de ElevenLabs</h3>
+        <label>Nombre
+          <input id="createVoiceName" required />
+        </label>
+        <label>Descripción
+          <textarea id="createVoiceDescription" rows="3"></textarea>
+        </label>
+        <menu>
+          <button value="cancel">Cancelar</button>
+          <button id="confirmCreateVoice" value="confirm" type="button">Crear</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="cloneVoiceDialog">
+      <form method="dialog">
+        <h3>Clonar voz desde audio</h3>
+        <label>Nombre
+          <input id="cloneVoiceName" required />
+        </label>
+        <label>Descripción
+          <textarea id="cloneVoiceDescription" rows="3"></textarea>
+        </label>
+        <label>Archivos de muestra (mp3, wav, m4a)
+          <input id="cloneVoiceFiles" type="file" accept="audio/*" multiple />
+        </label>
+        <menu>
+          <button value="cancel">Cancelar</button>
+          <button id="confirmCloneVoice" value="confirm" type="button">Clonar</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="loadingDialog">
+      <div class="spinner"></div>
+      <p id="loadingMessage">Procesando...</p>
+    </dialog>
+
+    <div id="toast" class="hidden"></div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
+
