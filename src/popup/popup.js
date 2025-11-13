@@ -7,6 +7,9 @@ const state = {
   audioHistory: []
 };
 
+const ENGLISH_LANGUAGE_KEYS = ["english", "en", "inglés", "ingles"];
+const MEXICAN_KEYWORDS = ["mexico", "méxico", "mexican", "latam", "latino", "latina"];
+
 const elements = {};
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -64,6 +67,9 @@ function cacheElements() {
 }
 
 function bindEvents() {
+  elements.voiceSelect.addEventListener("change", (event) => {
+    state.selectedVoiceId = event.target.value;
+  });
   elements.refreshVoices.addEventListener("click", () => loadVoices(true));
   elements.speedRange.addEventListener("input", (e) => {
     elements.speedValue.textContent = `${parseFloat(e.target.value).toFixed(2)}x`;
@@ -112,73 +118,72 @@ async function loadVoices(force = false) {
     showToast(`Error al cargar voces: ${response.error}`);
     return;
   }
-  state.voices = response.data;
-  renderVoices();
+  state.voices = response.data.map(decorateVoice);
+  await renderVoices();
 }
 
-function renderVoices() {
+async function renderVoices() {
   elements.voiceSelect.innerHTML = "";
   elements.voiceList.innerHTML = "";
 
+  if (!state.voices.length) {
+    return;
+  }
+
   const voiceMap = new Map();
   state.voices.forEach((voice) => {
-    const labels = voice.labels || {};
-    const language = labels.language || labels.accent || "unknown";
-    const gender = labels.gender || (voice.category === "premade" ? "unknown" : "unknown");
-    const country = labels.country || labels.accent_country || "";
-    
-    const langKey = language.toLowerCase();
-    const genderKey = gender.toLowerCase();
-    
+    const langKey = voice.languageKey ?? "unknown";
     if (!voiceMap.has(langKey)) {
       voiceMap.set(langKey, { female: [], male: [], unknown: [] });
     }
     const langGroup = voiceMap.get(langKey);
-    const genderGroup = genderKey === "female" || genderKey === "femenino" ? langGroup.female :
-                       genderKey === "male" || genderKey === "masculino" ? langGroup.male :
-                       langGroup.unknown;
-    genderGroup.push({ ...voice, displayLanguage: language, displayCountry: country, displayGender: gender });
+    const bucket =
+      voice.genderKey === "female"
+        ? langGroup.female
+        : voice.genderKey === "male"
+          ? langGroup.male
+          : langGroup.unknown;
+    bucket.push(voice);
   });
 
   const sortedLanguages = Array.from(voiceMap.entries()).sort(([a], [b]) => {
-    if (a.includes("spanish") || a.includes("español") || a === "es") return -1;
-    if (b.includes("spanish") || b.includes("español") || b === "es") return 1;
+    const aSpanish = isSpanishLanguage(a);
+    const bSpanish = isSpanishLanguage(b);
+    if (aSpanish && !bSpanish) return -1;
+    if (bSpanish && !aSpanish) return 1;
     return a.localeCompare(b);
   });
 
   sortedLanguages.forEach(([langKey, groups]) => {
-    const langName = langKey.charAt(0).toUpperCase() + langKey.slice(1);
+    if (isEnglishLanguage(langKey)) {
+      groups.female = prioritizeMexicanVoices(groups.female);
+      groups.male = prioritizeMexicanVoices(groups.male);
+      groups.unknown = prioritizeMexicanVoices(groups.unknown);
+    }
+
     const optgroup = document.createElement("optgroup");
-    optgroup.label = langName;
-    
+    const displayName =
+      groups.female[0]?.displayLanguage ||
+      groups.male[0]?.displayLanguage ||
+      groups.unknown[0]?.displayLanguage ||
+      formatLanguageLabel(langKey);
+    optgroup.label = displayName;
+
     [...groups.female, ...groups.male, ...groups.unknown].forEach((voice) => {
       const option = document.createElement("option");
       option.value = voice.voice_id;
       const countryStr = voice.displayCountry ? ` (${voice.displayCountry})` : "";
       const genderStr = voice.displayGender && voice.displayGender !== "unknown" ? ` - ${voice.displayGender}` : "";
-      option.textContent = `${voice.name}${countryStr}${genderStr}`;
+      const badge = voice.isMexican ? " [MX]" : "";
+      option.textContent = `${voice.name}${countryStr}${genderStr}${badge}`;
       optgroup.appendChild(option);
-      elements.voiceSelect.appendChild(optgroup);
     });
-  });
+    elements.voiceSelect.appendChild(optgroup);
 
-  const defaultVoice = state.config?.elevenLabs?.defaultVoiceId;
-  if (defaultVoice) {
-    elements.voiceSelect.value = defaultVoice;
-  } else if (state.voices[0]) {
-    elements.voiceSelect.value = state.voices[0].voice_id;
-  }
-  state.selectedVoiceId = elements.voiceSelect.value;
-  elements.voiceSelect.addEventListener("change", (event) => {
-    state.selectedVoiceId = event.target.value;
-  });
-
-  sortedLanguages.forEach(([langKey, groups]) => {
-    const langName = langKey.charAt(0).toUpperCase() + langKey.slice(1);
     const section = document.createElement("div");
     section.className = "voice-section";
     const header = document.createElement("h4");
-    header.textContent = langName;
+    header.textContent = displayName;
     section.appendChild(header);
 
     if (groups.female.length > 0) {
@@ -204,6 +209,78 @@ function renderVoices() {
     }
     elements.voiceList.appendChild(section);
   });
+
+  await applyPreferredVoiceSelection();
+}
+
+function prioritizeMexicanVoices(list = []) {
+  const mexican = list.filter((voice) => voice.isMexican);
+  const others = list.filter((voice) => !voice.isMexican);
+  return [...mexican, ...others];
+}
+
+function isEnglishLanguage(langKey = "") {
+  const normalized = normalizeForComparison(langKey);
+  return ENGLISH_LANGUAGE_KEYS.some((entry) => normalized.includes(normalizeForComparison(entry)));
+}
+
+function isSpanishLanguage(langKey = "") {
+  const normalized = normalizeForComparison(langKey);
+  return (
+    normalized.includes("spanish") ||
+    normalized.includes("espanol") ||
+    normalized === "es"
+  );
+}
+
+function formatLanguageLabel(langKey = "") {
+  if (!langKey) return "Desconocido";
+  return langKey.charAt(0).toUpperCase() + langKey.slice(1);
+}
+
+async function applyPreferredVoiceSelection() {
+  const preferred = findPreferredMexicanVoice();
+  const storedDefault = state.config?.elevenLabs?.defaultVoiceId;
+  const fallbackStored = storedDefault && voiceExists(storedDefault) ? storedDefault : null;
+  const fallbackVoice = state.voices[0]?.voice_id ?? "";
+  const nextVoiceId = preferred?.voice_id || fallbackStored || fallbackVoice;
+  if (!nextVoiceId) return;
+  elements.voiceSelect.value = nextVoiceId;
+  state.selectedVoiceId = nextVoiceId;
+  await syncDefaultVoiceSelection(nextVoiceId);
+}
+
+function voiceExists(voiceId) {
+  if (!voiceId) return false;
+  return state.voices.some((voice) => voice.voice_id === voiceId);
+}
+
+function findPreferredMexicanVoice() {
+  const priority = ["female", "male", "unknown"];
+  for (const gender of priority) {
+    const voice = state.voices.find((item) => item.isMexican && item.genderKey === gender);
+    if (voice) {
+      return voice;
+    }
+  }
+  return null;
+}
+
+async function syncDefaultVoiceSelection(voiceId) {
+  if (!state.config?.elevenLabs || state.config.elevenLabs.defaultVoiceId === voiceId) {
+    return;
+  }
+  const nextConfig = {
+    ...state.config,
+    elevenLabs: {
+      ...state.config.elevenLabs,
+      defaultVoiceId: voiceId
+    }
+  };
+  const response = await sendMessage("SET_CONFIG", nextConfig);
+  if (response?.success) {
+    state.config = nextConfig;
+  }
 }
 
 function createVoiceItem(voice) {
@@ -211,7 +288,8 @@ function createVoiceItem(voice) {
   item.className = "voice-item";
   const span = document.createElement("span");
   const countryStr = voice.displayCountry ? ` (${voice.displayCountry})` : "";
-  span.textContent = `${voice.name}${countryStr}`;
+  const badge = voice.isMexican ? " [MX]" : "";
+  span.textContent = `${voice.name}${countryStr}${badge}`;
   const useButton = document.createElement("button");
   useButton.textContent = "Usar";
   useButton.addEventListener("click", () => {
@@ -279,12 +357,17 @@ async function synthesizeText(text, contextLabel) {
   elements.audioPlayer.src = src;
   elements.audioPlayer.playbackRate = speed;
   elements.audioResult.classList.remove("hidden");
+  try {
+    elements.audioPlayer.currentTime = 0;
+    await elements.audioPlayer.play();
+  } catch (error) {
+    console.warn("No se pudo reproducir automáticamente el audio", error);
+  }
   state.lastAudio = { src, fileName, format, speed, tone, contextLabel };
   
   await saveAudioToHistory({ src, fileName, format, speed, tone, contextLabel, timestamp: Date.now() });
-  await autoDownloadAudio(base64, fileName, format);
   
-  showToast("Audio listo.");
+  showToast("Audio generado y reproduciéndose.");
 }
 
 function getVoiceSettingsForTone(tone) {
@@ -544,6 +627,60 @@ function showToast(message) {
   }, 2200);
 }
 
+function decorateVoice(voice) {
+  const labels = voice.labels || {};
+  const rawLanguage = labels.language || labels.accent || voice.language || "unknown";
+  const rawGender = labels.gender || labels.voice_gender || voice.gender || "";
+  const country = labels.country || labels.accent_country || "";
+  const accent = labels.accent || "";
+  const description = labels.description || voice.description || "";
+  const languageKey = normalizeForComparison(rawLanguage || "unknown");
+  const normalizedGender = normalizeForComparison(rawGender);
+  const genderKey =
+    normalizedGender.includes("female") || normalizedGender.includes("femenin")
+      ? "female"
+      : normalizedGender.includes("male") || normalizedGender.includes("masculin")
+        ? "male"
+        : "unknown";
+
+  const enriched = {
+    ...voice,
+    displayLanguage: rawLanguage || formatLanguageLabel(languageKey),
+    displayCountry: country,
+    displayGender: rawGender || "unknown",
+    languageKey,
+    genderKey
+  };
+  enriched.isMexican = detectMexicanVoice(enriched, { accent, description });
+  return enriched;
+}
+
+function detectMexicanVoice(voice, extra = {}) {
+  const haystack = [
+    voice.displayCountry,
+    voice.displayLanguage,
+    extra.accent,
+    extra.description,
+    voice.name,
+    voice.labels?.description,
+    voice.labels?.accent
+  ]
+    .filter(Boolean)
+    .map((value) => normalizeForComparison(value))
+    .join(" ");
+  return MEXICAN_KEYWORDS.some((keyword) =>
+    haystack.includes(normalizeForComparison(keyword))
+  );
+}
+
+function normalizeForComparison(value = "") {
+  return value
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 async function sendMessage(type, payload = {}) {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type, payload }, (response) => {
@@ -630,21 +767,6 @@ function downloadAudioFromHistory(index) {
   link.remove();
 }
 
-async function autoDownloadAudio(base64, fileName, format) {
-  const config = state.config;
-  if (!config?.autoDownload?.enabled) return;
-  
-  const downloadPath = config.autoDownload.path || "Audios Generados por Extension";
-  const response = await sendMessage("DOWNLOAD_AUDIO", {
-    base64,
-    fileName,
-    format,
-    path: downloadPath
-  });
-  if (!response.success) {
-    console.warn("No se pudo descargar automáticamente:", response.error);
-  }
-}
 
 function getActiveTab() {
   return new Promise((resolve, reject) => {

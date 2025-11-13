@@ -48,7 +48,8 @@
     {
       "resources": [
         "assets/*",
-        "icons/*"
+        "icons/*",
+        "data/env-config.json"
       ],
       "matches": [
         "<all_urls>"

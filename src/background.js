@@ -125,11 +125,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .then(() => sendResponse({ success: true }))
         .catch((error) => sendResponse({ success: false, error: error.message }));
       return true;
-    case "DOWNLOAD_AUDIO":
-      handleDownloadAudio(payload)
-        .then(() => sendResponse({ success: true }))
-        .catch((error) => sendResponse({ success: false, error: error.message }));
-      return true;
     case "RESET_MEMORY":
       if (payload?.tabId != null) {
         sessionMemory.delete(payload.tabId);
@@ -344,13 +339,14 @@ async function registerAudioHistory({ base64, format, fileName, sourceLabel, voi
   });
 }
 
+
 async function autoDownloadAudio({ base64, format, fileName, config }) {
   try {
-    const preferences = config?.downloadPreferences ?? {};
-    if (!preferences.autoDownload) {
+    const preferences = resolveAutoDownloadPreferences(config);
+    if (!preferences.enabled) {
       return;
     }
-    const folder = sanitizeFolder(preferences.subFolder ?? "Audios Generados por Extension");
+    const folder = preferences.folder ?? "Audios Generados por Extension";
     const dataUrl = `data:audio/${format};base64,${base64}`;
     await new Promise((resolve, reject) => {
       chrome.downloads.download(
@@ -373,8 +369,26 @@ async function autoDownloadAudio({ base64, format, fileName, config }) {
   }
 }
 
+
 function sanitizeFolder(folderName) {
   return folderName?.replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Audios Generados por Extension";
+}
+
+function resolveAutoDownloadPreferences(config) {
+  const direct = config?.autoDownload ?? {};
+  const legacy = config?.downloadPreferences ?? {};
+  const enabled =
+    typeof direct.enabled === "boolean"
+      ? direct.enabled
+      : legacy.autoDownload ?? false;
+  const folder =
+    direct.path ??
+    legacy.subFolder ??
+    "Audios Generados por Extension";
+  return {
+    enabled: Boolean(enabled),
+    folder: sanitizeFolder(folder)
+  };
 }
 
 function buildContentOptions(overrides = {}, config) {
@@ -397,31 +411,5 @@ async function handleSaveAudioHistory(payload) {
   }
   const { saveAudioHistory } = await import("./utils/history.js");
   await saveAudioHistory(history);
-}
-
-async function handleDownloadAudio(payload) {
-  const { base64, fileName, format, path } = payload;
-  if (!base64 || !fileName) {
-    throw new Error("Faltan datos para descargar el audio.");
-  }
-  const config = await getConfig();
-  const folder = sanitizeFolder(path || config?.autoDownload?.path || "Audios Generados por Extension");
-  const dataUrl = `data:audio/${format};base64,${base64}`;
-  return new Promise((resolve, reject) => {
-    chrome.downloads.download(
-      {
-        url: dataUrl,
-        filename: `${folder}/${fileName}`,
-        saveAs: false
-      },
-      (downloadId) => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-          return;
-        }
-        resolve(downloadId);
-      }
-    );
-  });
 }
 

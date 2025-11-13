@@ -64,19 +64,25 @@ export const DEFAULT_CONFIG = {
 };
 
 const CONFIG_KEY = "phillips_voice_companion_config";
+let resolvedDefaultsPromise = null;
+let envOverridesPromise = null;
 
 export async function ensureConfig() {
-  const existing = await storage.get(CONFIG_KEY, null);
+  const [defaults, existing] = await Promise.all([getResolvedDefaults(), storage.get(CONFIG_KEY, null)]);
   if (!existing) {
-    await storage.set(CONFIG_KEY, DEFAULT_CONFIG);
-    return DEFAULT_CONFIG;
+    await storage.set(CONFIG_KEY, defaults);
+    return defaults;
   }
-  return { ...DEFAULT_CONFIG, ...existing };
+  return mergeDeep(defaults, existing);
 }
 
 export async function getConfig() {
-  const config = await storage.get(CONFIG_KEY, null);
-  return config ? { ...DEFAULT_CONFIG, ...config } : await ensureConfig();
+  const existing = await storage.get(CONFIG_KEY, null);
+  if (!existing) {
+    return ensureConfig();
+  }
+  const defaults = await getResolvedDefaults();
+  return mergeDeep(defaults, existing);
 }
 
 export async function setConfig(config) {
@@ -86,8 +92,81 @@ export async function setConfig(config) {
 
 export async function updateConfig(patch) {
   const current = await getConfig();
-  const next = { ...current, ...patch };
+  const next = mergeDeep(current, patch);
   await setConfig(next);
   return next;
+}
+
+async function getResolvedDefaults() {
+  if (!resolvedDefaultsPromise) {
+    resolvedDefaultsPromise = (async () => {
+      const overrides = await loadEnvOverrides();
+      return mergeDeep(DEFAULT_CONFIG, overrides);
+    })();
+  }
+  return resolvedDefaultsPromise;
+}
+
+async function loadEnvOverrides() {
+  if (envOverridesPromise) return envOverridesPromise;
+
+  envOverridesPromise = (async () => {
+    const canUseChromeApi = typeof chrome !== "undefined" && chrome?.runtime?.getURL;
+    if (!canUseChromeApi) return {};
+    try {
+      const url = chrome.runtime.getURL("data/env-config.json");
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) {
+        return {};
+      }
+      return await response.json();
+    } catch {
+      return {};
+    }
+  })();
+
+  return envOverridesPromise;
+}
+
+function mergeDeep(base, override) {
+  if (override === undefined) {
+    return cloneValue(base);
+  }
+
+  if (Array.isArray(override)) {
+    return override.slice();
+  }
+
+  if (isPlainObject(override) || isPlainObject(base)) {
+    const result = {};
+    const baseObject = isPlainObject(base) ? base : {};
+    const overrideObject = isPlainObject(override) ? override : {};
+    const keys = new Set([...Object.keys(baseObject), ...Object.keys(overrideObject)]);
+
+    for (const key of keys) {
+      result[key] = mergeDeep(baseObject[key], overrideObject[key]);
+    }
+
+    return result;
+  }
+
+  return override;
+}
+
+function cloneValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => cloneValue(entry));
+  }
+  if (isPlainObject(value)) {
+    return Object.keys(value).reduce((acc, key) => {
+      acc[key] = cloneValue(value[key]);
+      return acc;
+    }, {});
+  }
+  return value;
+}
+
+function isPlainObject(value) {
+  return Object.prototype.toString.call(value) === "[object Object]";
 }
 
