@@ -49,6 +49,7 @@ chrome-extension/
 2. Ejecuta `npm install` (solo la primera vez, no hay dependencias pero habilita los scripts).
 3. Corre `npm run build:env`. Este comando leerá `.env` y generará `data/env-config.json` con los valores necesarios.
 4. Carga la extensión como siempre. Al iniciar por primera vez, `src/utils/config.js` leerá `data/env-config.json` y precargará las credenciales en `chrome.storage.local` para que el popup y las opciones ya tengan todo listo.
+5. Si usas el proxy de Modal, añade también `PROXY_AUTH_TOKEN` en tu `.env` (o en el campo “Proxy Auth Token” dentro de la página de opciones); la extensión lo enviará en el header `Authorization` para que tu endpoint acepte las peticiones.
 
 El archivo `.env` y `data/env-config.json` están ignorados por Git, así que cada persona puede mantener sus propias claves sin riesgo de subirlas.
 

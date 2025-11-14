@@ -1,5 +1,32 @@
 import { storage } from "./storage.js";
 
+const DEFAULT_GROQ_PROFILES = [
+  {
+    id: "modal-proxy",
+    label: "Proxy Modal principal (aprende)",
+    endpoint: "https://aprende-workspace-4--llama2-modal-endpoint-fastapi-app.modal.run/v1",
+    model: "llama-3.3-70b-versatile",
+    proxyAuthToken: "",
+    apiKey: ""
+  },
+  {
+    id: "groq-direct-primary",
+    label: "Groq directo - clave primaria",
+    endpoint: "https://api.groq.com/openai/v1",
+    model: "llama-3.3-70b-versatile",
+    proxyAuthToken: "",
+    apiKey: "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"
+  },
+  {
+    id: "groq-direct-n8n",
+    label: "Groq directo - clave n8n",
+    endpoint: "https://api.groq.com/openai/v1",
+    model: "llama-3.3-70b-versatile",
+    proxyAuthToken: "",
+    apiKey: "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"
+  }
+];
+
 export const DEFAULT_CONFIG = {
   profileName: "Cuenta de servicio de Phillips",
   elevenLabs: {
@@ -15,10 +42,16 @@ export const DEFAULT_CONFIG = {
   },
   groq: {
     defaultEndpoint: "https://aprende-workspace-4--llama2-modal-endpoint-fastapi-app.modal.run/v1",
-    apiKeys: ["", ""],
-    defaultModel: "llama2-70b-chat",
+    apiKeys: [
+      "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",
+      "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"
+    ],
+    proxyAuthToken: "",
+    defaultModel: "llama-3.3-70b-versatile",
     temperature: 0.6,
-    maxTokens: 1024
+    maxTokens: 1024,
+    profiles: DEFAULT_GROQ_PROFILES,
+    activeProfileId: "groq-direct-primary"
   },
   huggingFace: {
     apiKey: "",

@@ -69,6 +69,27 @@ section h2 {
   gap: 6px;
 }
 
+.inline-field {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.inline-field select {
+  flex: 1;
+}
+
+.inline-field button {
+  flex-shrink: 0;
+  min-width: 70px;
+}
+
+#groqProfileHint {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
 label {
   display: block;
   font-size: 12px;

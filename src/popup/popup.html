@@ -80,6 +80,18 @@
       </section>
 
       <section>
+        <h2>Conexion Groq / Modal</h2>
+        <div class="field-group stacked">
+          <label for="groqProfileSelect">Perfil activo</label>
+          <div class="inline-field">
+            <select id="groqProfileSelect"></select>
+            <button id="applyGroqProfile" type="button">Usar</button>
+          </div>
+          <small id="groqProfileHint">Selecciona la credencial que quieras probar desde el popup.</small>
+        </div>
+      </section>
+
+      <section>
         <h2>Resumen asistido (Groq)</h2>
         <div class="actions">
           <button id="summarizePage">Resumir página</button>
@@ -154,4 +166,5 @@
     <script type="module" src="popup.js"></script>
   </body>
 </html>
+
 

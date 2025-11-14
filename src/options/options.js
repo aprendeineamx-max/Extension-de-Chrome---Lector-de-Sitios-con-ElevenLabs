@@ -1,11 +1,16 @@
 import { DEFAULT_CONFIG, getConfig, setConfig } from "../utils/config.js";
 
+const state = {
+  config: null
+};
+
 const elements = {};
 
 document.addEventListener("DOMContentLoaded", async () => {
   cacheElements();
   bindEvents();
   const config = await getConfig();
+  state.config = config;
   populate(config);
 });
 
@@ -21,6 +26,8 @@ function cacheElements() {
   elements.groqTemperature = document.getElementById("groqTemperature");
   elements.groqMaxTokens = document.getElementById("groqMaxTokens");
   elements.groqApiKeys = document.getElementById("groqApiKeys");
+  elements.groqProxyToken = document.getElementById("groqProxyToken");
+  elements.groqProxyToken = document.getElementById("groqProxyToken");
   elements.sttProvider = document.getElementById("sttProvider");
   elements.sttModel = document.getElementById("sttModel");
   elements.sttLanguage = document.getElementById("sttLanguage");
@@ -49,6 +56,7 @@ function bindEvents() {
 }
 
 function populate(config) {
+  state.config = config;
   elements.elevenApiKey.value = config.elevenLabs.apiKey ?? "";
   elements.elevenVoiceId.value = config.elevenLabs.defaultVoiceId ?? "";
   elements.elevenStability.value = config.elevenLabs.voiceSettings?.stability ?? 0.4;
@@ -61,6 +69,8 @@ function populate(config) {
   elements.groqTemperature.value = config.groq.temperature ?? 0.6;
   elements.groqMaxTokens.value = config.groq.maxTokens ?? 1024;
   elements.groqApiKeys.value = (config.groq.apiKeys ?? []).join("\n");
+  elements.groqProxyToken.value = config.groq.proxyAuthToken ?? "";
+  elements.groqProxyToken.value = config.groq.proxyAuthToken ?? "";
 
   elements.sttProvider.value = config.speechToText.provider ?? "huggingface";
   elements.sttModel.value = config.speechToText.model ?? "";
@@ -78,8 +88,9 @@ function populate(config) {
 }
 
 function collectConfig() {
+  const base = state.config ? JSON.parse(JSON.stringify(state.config)) : JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   return {
-    ...DEFAULT_CONFIG,
+    ...base,
     profileName: DEFAULT_CONFIG.profileName,
     elevenLabs: {
       apiKey: elements.elevenApiKey.value.trim(),
@@ -92,6 +103,7 @@ function collectConfig() {
       }
     },
     groq: {
+      ...(base.groq ?? {}),
       defaultEndpoint: elements.groqEndpoint.value.trim(),
       defaultModel: elements.groqModel.value.trim(),
       temperature: Number(elements.groqTemperature.value) || 0.6,
@@ -99,7 +111,8 @@ function collectConfig() {
       apiKeys: elements.groqApiKeys.value
         .split("\n")
         .map((key) => key.trim())
-        .filter(Boolean)
+        .filter(Boolean),
+      proxyAuthToken: elements.groqProxyToken.value.trim()
     },
     speechToText: {
       provider: elements.sttProvider.value,

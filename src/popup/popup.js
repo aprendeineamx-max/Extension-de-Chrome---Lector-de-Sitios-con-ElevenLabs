@@ -1,16 +1,18 @@
-﻿const state = {
+const state = {
   config: null,
   voices: [],
   selectedVoiceId: null,
   lastAudio: null,
   conversation: [],
-  audioHistory: []
+  audioHistory: [],
+  groqProfiles: [],
+  activeGroqProfileId: null
 };
 
 const MAX_AUDIO_HISTORY_ITEMS = 12;
 
-const ENGLISH_LANGUAGE_KEYS = ["english", "en", "inglés", "ingles"];
-const MEXICAN_KEYWORDS = ["mexico", "méxico", "mexican", "latam", "latino", "latina"];
+const ENGLISH_LANGUAGE_KEYS = ["english", "en", "ingl�s", "ingles"];
+const MEXICAN_KEYWORDS = ["mexico", "m�xico", "mexican", "latam", "latino", "latina"];
 
 const elements = {};
 let mediaRecorder = null;
@@ -61,6 +63,9 @@ function cacheElements() {
   elements.summaryOutput = document.getElementById("summaryOutput");
   elements.playSummary = document.getElementById("playSummary");
   elements.copySummary = document.getElementById("copySummary");
+  elements.groqProfileSelect = document.getElementById("groqProfileSelect");
+  elements.applyGroqProfile = document.getElementById("applyGroqProfile");
+  elements.groqProfileHint = document.getElementById("groqProfileHint");
   elements.conversationHistory = document.getElementById("conversationHistory");
   elements.conversationInput = document.getElementById("conversationInput");
   elements.sendMessage = document.getElementById("sendMessage");
@@ -88,6 +93,8 @@ function bindEvents() {
   elements.summarizeSelection.addEventListener("click", () => summarize({ useSelection: true }));
   elements.playSummary.addEventListener("click", () => playSummary());
   elements.copySummary.addEventListener("click", () => copyText(elements.summaryOutput.value));
+  elements.groqProfileSelect?.addEventListener("change", () => updateGroqProfileHint());
+  elements.applyGroqProfile?.addEventListener("click", () => applyGroqProfile());
   elements.sendMessage.addEventListener("click", () => sendConversationMessage());
   elements.conversationInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -102,15 +109,177 @@ function bindEvents() {
 async function loadConfig() {
   const response = await sendMessage("GET_CONFIG");
   if (!response.success) {
-    showToast(`No se pudo cargar la configuraciÃ³n: ${response.error}`);
+    showToast(`No se pudo cargar la configuración: ${response.error}`);
     return;
   }
   state.config = response.data;
+  refreshGroqProfiles();
   if (state.config?.textToSpeech?.format) {
     elements.formatSelect.value = state.config.textToSpeech.format;
   }
 }
 
+function refreshGroqProfiles() {
+  state.groqProfiles = normalizeGroqProfiles(state.config);
+  const activeFromConfig = state.config?.groq?.activeProfileId;
+  const fallback = state.groqProfiles[0]?.id ?? null;
+  state.activeGroqProfileId = activeFromConfig ?? fallback;
+  renderGroqProfileSelector();
+}
+
+function normalizeGroqProfiles(config) {
+  const groq = config?.groq ?? {};
+  const rawProfiles = Array.isArray(groq.profiles) && groq.profiles.length ? groq.profiles : buildFallbackGroqProfiles(groq);
+  return rawProfiles.map((profile, index) => normalizeGroqProfileEntry(profile, index));
+}
+
+function buildFallbackGroqProfiles(groq = {}) {
+  const endpoint = groq?.defaultEndpoint?.trim() ?? '';
+  const apiKeys = Array.isArray(groq?.apiKeys) ? groq.apiKeys.map((key) => key?.trim()).filter(Boolean) : [];
+  if (endpoint && apiKeys.length) {
+    return apiKeys.map((key, index) => ({
+      id: `groq-key-${index + 1}`,
+      label: `API Key #${index + 1}`,
+      endpoint,
+      apiKey: key,
+      model: groq.defaultModel ?? ''
+    }));
+  }
+  if (endpoint) {
+    return [
+      {
+        id: 'groq-default',
+        label: 'Configuracion principal',
+        endpoint,
+        apiKey: '',
+        proxyAuthToken: groq.proxyAuthToken ?? '',
+        model: groq.defaultModel ?? ''
+      }
+    ];
+  }
+  return [];
+}
+
+function normalizeGroqProfileEntry(profile = {}, index = 0) {
+  const id = profile.id?.toString().trim() || `groq-profile-${index + 1}`;
+  const label = profile.label?.toString().trim() || `Perfil ${index + 1}`;
+  return {
+    id,
+    label,
+    endpoint: profile.endpoint?.trim() ?? '',
+    model: profile.model?.trim() ?? '',
+    apiKey: profile.apiKey?.trim() ?? '',
+    proxyAuthToken: profile.proxyAuthToken?.trim() ?? '',
+    temperature: profile.temperature,
+    maxTokens: profile.maxTokens
+  };
+}
+
+function renderGroqProfileSelector() {
+  if (!elements.groqProfileSelect) return;
+  const select = elements.groqProfileSelect;
+  select.innerHTML = '';
+  if (!state.groqProfiles.length) {
+    select.disabled = true;
+    if (elements.applyGroqProfile) {
+      elements.applyGroqProfile.disabled = true;
+    }
+    if (elements.groqProfileHint) {
+      elements.groqProfileHint.textContent = 'Configura tus credenciales de Groq en la pagina de opciones.';
+    }
+    return;
+  }
+  select.disabled = false;
+  if (elements.applyGroqProfile) {
+    elements.applyGroqProfile.disabled = false;
+  }
+  state.groqProfiles.forEach((profile) => {
+    const option = document.createElement('option');
+    option.value = profile.id;
+    option.textContent = formatGroqProfileLabel(profile);
+    select.appendChild(option);
+  });
+  const activeId = state.activeGroqProfileId ?? state.groqProfiles[0].id;
+  if (activeId && state.groqProfiles.some((profile) => profile.id === activeId)) {
+    select.value = activeId;
+  }
+  updateGroqProfileHint();
+}
+
+function formatGroqProfileLabel(profile) {
+  const host = extractHost(profile.endpoint);
+  return host ? `${profile.label} (${host})` : profile.label;
+}
+
+function updateGroqProfileHint() {
+  if (!elements.groqProfileHint || !elements.groqProfileSelect) return;
+  const selectedId = elements.groqProfileSelect.value;
+  const profile = getGroqProfileById(selectedId) ?? getGroqProfileById(state.activeGroqProfileId);
+  if (!profile) {
+    elements.groqProfileHint.textContent = 'No hay perfiles disponibles. Revisa la configuracion.';
+    return;
+  }
+  const host = extractHost(profile.endpoint) || 'endpoint sin definir';
+  const credentialLabel = profile.proxyAuthToken
+    ? 'token de proxy'
+    : profile.apiKey
+      ? `API Key ${maskCredential(profile.apiKey)}`
+      : 'credencial guardada';
+  const modelInfo = profile.model ? ` Modelo: ${profile.model}.` : '';
+  elements.groqProfileHint.textContent = `Se usara ${credentialLabel} en ${host}.${modelInfo}`;
+}
+
+async function applyGroqProfile() {
+  if (!elements.groqProfileSelect || !state.config) {
+    return;
+  }
+  const selectedId = elements.groqProfileSelect.value;
+  if (!selectedId) {
+    showToast('Selecciona un perfil de Groq.');
+    return;
+  }
+  if (state.config?.groq?.activeProfileId === selectedId) {
+    showToast('Ese perfil ya esta activo.');
+    return;
+  }
+  const nextConfig = {
+    ...state.config,
+    groq: {
+      ...(state.config.groq ?? {}),
+      activeProfileId: selectedId
+    }
+  };
+  const response = await sendMessage('SET_CONFIG', nextConfig);
+  if (!response?.success) {
+    showToast(`No se pudo guardar: ${response?.error ?? 'Error desconocido'}`);
+    return;
+  }
+  state.config = nextConfig;
+  state.activeGroqProfileId = selectedId;
+  showToast('Perfil de Groq actualizado.');
+  updateGroqProfileHint();
+}
+
+function getGroqProfileById(id) {
+  if (!id) return null;
+  return state.groqProfiles.find((profile) => profile.id === id) ?? null;
+}
+
+function extractHost(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname;
+  } catch (_error) {
+    return '';
+  }
+}
+
+function maskCredential(value) {
+  if (!value) return '';
+  if (value.length <= 8) return value;
+  return `${value.slice(0, 4)}***${value.slice(-4)}`;
+}
 async function loadVoices(force = false) {
   if (!force && state.voices.length > 0) return;
   showLoading("Cargando voces...");
@@ -223,7 +392,7 @@ function prioritizeMexicanVoices(list = []) {
 
 function isEnglishLanguage(langKey = "") {
   const normalized = normalizeForComparison(langKey);
-const ENGLISH_LANGUAGE_KEYS = ["english", "en", "inglés", "ingles"];
+const ENGLISH_LANGUAGE_KEYS = ["english", "en", "ingl�s", "ingles"];
 }
 
 function isSpanishLanguage(langKey = "") {
@@ -309,7 +478,7 @@ async function readPage() {
     skipUrls: elements.skipUrlsToggle.checked
   });
   if (!content) return;
-  await synthesizeText(content.text, "Lectura de pÃ¡gina completa");
+  await synthesizeText(content.text, "Lectura de página completa");
 }
 
 async function readSelection() {
@@ -320,10 +489,10 @@ async function readSelection() {
   if (!content) return;
   const text = content.selection?.trim();
   if (!text) {
-    showToast("No hay texto seleccionado en la pestaÃ±a.");
+    showToast("No hay texto seleccionado en la pestaña.");
     return;
   }
-  await synthesizeText(text, "Lectura de selecciÃ³n");
+  await synthesizeText(text, "Lectura de selección");
 }
 
 async function readCustom() {
@@ -363,7 +532,7 @@ async function synthesizeText(text, contextLabel) {
     elements.audioPlayer.currentTime = 0;
     await elements.audioPlayer.play();
   } catch (error) {
-    console.warn("No se pudo reproducir automáticamente el audio", error);
+    console.warn("No se pudo reproducir autom�ticamente el audio", error);
   }
   state.lastAudio = { src, fileName, format, speed, tone, contextLabel };
 
@@ -377,7 +546,7 @@ async function synthesizeText(text, contextLabel) {
     }
   );
 
-  showToast("Audio generado y reproduciéndose.");
+  showToast("Audio generado y reproduci�ndose.");
 }
 
 function getVoiceSettingsForTone(tone) {
@@ -438,7 +607,7 @@ async function handleCloneVoice() {
     showToast("Adjunta al menos un archivo de audio.");
     return;
   }
-  showLoading("Enviando archivos para clonaciÃ³n...");
+  showLoading("Enviando archivos para clonación...");
   const serialized = await Promise.all(
     files.map(async (file) => ({
       name: file.name,
@@ -453,7 +622,7 @@ async function handleCloneVoice() {
   });
   hideLoading();
   if (!response.success) {
-    showToast(`Fallo en la clonaciÃ³n: ${response.error}`);
+    showToast(`Fallo en la clonación: ${response.error}`);
     return;
   }
   elements.cloneVoiceDialog.close();
@@ -469,7 +638,7 @@ async function requestPageContent(options = {}) {
   try {
     activeTab = await getActiveTab();
   } catch (error) {
-    showToast(`No se pudo acceder a la pestaÃ±a activa: ${error.message}`);
+    showToast(`No se pudo acceder a la pestaña activa: ${error.message}`);
     return null;
   }
   const tabId = activeTab?.id ?? null;
@@ -516,7 +685,7 @@ async function playSummary() {
 async function sendConversationMessage() {
   const text = elements.conversationInput.value.trim();
   if (!text) {
-    showToast("Escribe un mensaje para continuar la conversaciÃ³n.");
+    showToast("Escribe un mensaje para continuar la conversación.");
     return;
   }
   appendConversationEntry("user", text);
@@ -531,7 +700,7 @@ async function requestConversationReply() {
     activeTab = await getActiveTab();
   } catch (error) {
     hideLoading();
-    showToast(`Error al obtener pestaÃ±a activa: ${error.message}`);
+    showToast(`Error al obtener pestaña activa: ${error.message}`);
     return;
   }
   const response = await sendMessage("CONVERSATION_REPLY", {
@@ -540,7 +709,7 @@ async function requestConversationReply() {
   });
   hideLoading();
   if (!response.success) {
-    showToast(`Error en la conversaciÃ³n: ${response.error}`);
+    showToast(`Error en la conversación: ${response.error}`);
     return;
   }
   appendConversationEntry("assistant", response.data);
@@ -551,7 +720,7 @@ function appendConversationEntry(role, content) {
   state.conversation.push({ role, content });
   const entry = document.createElement("div");
   entry.className = "conversation-entry";
-  entry.innerHTML = `<strong>${role === "user" ? "TÃº" : "Asistente"}:</strong> ${content}`;
+  entry.innerHTML = `<strong>${role === "user" ? "Tú" : "Asistente"}:</strong> ${content}`;
   elements.conversationHistory.appendChild(entry);
   elements.conversationHistory.scrollTop = elements.conversationHistory.scrollHeight;
 }
@@ -559,7 +728,7 @@ function appendConversationEntry(role, content) {
 async function toggleRecording() {
   if (mediaRecorder?.state === "recording") {
     mediaRecorder.stop();
-    elements.micToggle.textContent = "ðŸŽ¤ Grabar";
+    elements.micToggle.textContent = "🎤 Grabar";
     return;
   }
   try {
@@ -588,16 +757,16 @@ async function toggleRecording() {
       const transcription = response.data.text?.trim();
       if (transcription) {
         elements.conversationInput.value = transcription;
-        showToast("TranscripciÃ³n lista, revisa el campo de mensaje.");
+        showToast("Transcripción lista, revisa el campo de mensaje.");
       } else {
         showToast("No se obtuvo texto del audio grabado.");
       }
     };
     mediaRecorder.start();
-    elements.micToggle.textContent = "â¹ï¸ Detener";
+    elements.micToggle.textContent = "⏹️ Detener";
     showToast("Grabando... pulsa de nuevo para detener.");
   } catch (error) {
-    showToast(`No se pudo iniciar la grabaciÃ³n: ${error.message}`);
+    showToast(`No se pudo iniciar la grabación: ${error.message}`);
   }
 }
 
@@ -612,7 +781,7 @@ async function resetConversation() {
     return;
   }
   await sendMessage("RESET_MEMORY", { tabId: activeTab?.id });
-  showToast("ConversaciÃ³n reiniciada.");
+  showToast("Conversación reiniciada.");
 }
 
 function showLoading(message) {
@@ -741,7 +910,7 @@ function addAudioHistoryEntry(entry) {
 function renderAudioHistory() {
   elements.generatedAudios.innerHTML = "";
   if (state.audioHistory.length === 0) {
-    elements.generatedAudios.innerHTML = "<p style='padding: 12px; color: #999;'>No hay audios generados aún.</p>";
+    elements.generatedAudios.innerHTML = "<p style='padding: 12px; color: #999;'>No hay audios generados a�n.</p>";
     return;
   }
   state.audioHistory.forEach((audio, index) => {
@@ -752,7 +921,7 @@ function renderAudioHistory() {
     item.innerHTML = `
       <div class="audio-history-info">
         <strong>${audio.contextLabel || "Audio"}</strong>
-        <span class="audio-history-meta">${date} • ${audio.format?.toUpperCase() || "MP3"}</span>
+        <span class="audio-history-meta">${date} � ${audio.format?.toUpperCase() || "MP3"}</span>
       </div>
       <div class="audio-history-actions">
         <audio controls src="${source ?? ""}" style="width: 200px; height: 32px;"></audio>
@@ -772,7 +941,7 @@ function downloadAudioFromHistory(index) {
   if (!audio) return;
   const source = audio.src || buildAudioSrc(audio.base64, audio.format);
   if (!source) {
-    showToast("No se encontró el audio en el historial.");
+    showToast("No se encontr� el audio en el historial.");
     return;
   }
   const link = document.createElement("a");

@@ -51,6 +51,12 @@ function buildConfig(env) {
   if (groqKeys.length) groq.apiKeys = groqKeys;
   if (env.GROQ_ENDPOINT) groq.defaultEndpoint = env.GROQ_ENDPOINT;
   if (env.GROQ_MODEL) groq.defaultModel = env.GROQ_MODEL;
+  if (env.PROXY_AUTH_TOKEN) groq.proxyAuthToken = env.PROXY_AUTH_TOKEN;
+  if (env.GROQ_ACTIVE_PROFILE) groq.activeProfileId = env.GROQ_ACTIVE_PROFILE;
+  const profileOverrides = parseGroqProfiles(env.GROQ_PROFILES_JSON);
+  if (profileOverrides.length) {
+    groq.profiles = profileOverrides;
+  }
   if (Object.keys(groq).length) {
     config.groq = groq;
   }
@@ -71,4 +77,17 @@ function splitList(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseGroqProfiles(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((entry) => entry && typeof entry === "object");
+    }
+  } catch (error) {
+    console.warn("No se pudo interpretar GROQ_PROFILES_JSON. Usa JSON valido.");
+  }
+  return [];
 }
