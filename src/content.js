@@ -1,5 +1,10 @@
-const MAX_CONTEXT_CHARS = 12000;
-let overlayContainer = null;
+if (window.__phillipsVoiceContentLoaded) {
+  console.debug("Phillips Voice Companion: content script ya estaba cargado en la pestaA�a.");
+} else {
+  window.__phillipsVoiceContentLoaded = true;
+
+  const MAX_CONTEXT_CHARS = 12000;
+  let overlayContainer = null;
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const { type, payload } = message ?? {};
@@ -290,15 +295,16 @@ function ensureOverlay() {
   document.body.appendChild(overlayContainer);
 }
 
-function showToast(message) {
-  let toast = document.getElementById("phillips-voice-toast");
-  if (!toast) {
-    toast = document.createElement("div");
-    toast.id = "phillips-voice-toast";
-    document.body.appendChild(toast);
+  function showToast(message) {
+    let toast = document.getElementById("phillips-voice-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "phillips-voice-toast";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add("visible");
+    setTimeout(() => toast.classList.remove("visible"), 3000);
   }
-  toast.textContent = message;
-  toast.classList.add("visible");
-  setTimeout(() => toast.classList.remove("visible"), 3000);
 }
 

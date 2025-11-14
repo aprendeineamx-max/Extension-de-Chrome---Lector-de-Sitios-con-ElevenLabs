@@ -98,19 +98,6 @@ async function safeJson(response) {
 
 const OPENAI_SUFFIXES = ["/chat/completions", "/completions"];
 
-function normalizeEndpoint(endpoint) {
-  const trimmed = (endpoint ?? "").trim();
-  if (!trimmed) {
-    throw new Error("Endpoint de Groq no configurado.");
-  }
-  const cleaned = trimmed.replace(/\/+$/, "");
-  const lower = cleaned.toLowerCase();
-  if (OPENAI_SUFFIXES.some((suffix) => lower.endsWith(suffix))) {
-    return cleaned;
-  }
-  return `${cleaned}/chat/completions`;
-}
-
 function buildEndpointAttempts(endpoint) {
   const trimmed = (endpoint ?? "").trim();
   if (!trimmed) {
@@ -118,6 +105,10 @@ function buildEndpointAttempts(endpoint) {
   }
 
   const baseWithoutSlash = trimmed.replace(/\/+$/, "");
+  if (!shouldUseOpenAIStyle(baseWithoutSlash)) {
+    return [baseWithoutSlash];
+  }
+
   const baseVariants = new Set([baseWithoutSlash]);
   if (!/\/v1$/i.test(baseWithoutSlash)) {
     baseVariants.add(`${baseWithoutSlash}/v1`);
@@ -135,11 +126,35 @@ function buildEndpointAttempts(endpoint) {
     attempts.push(cleanedBase);
   });
 
-  attempts.unshift(normalizeEndpoint(baseWithoutSlash));
+  const normalized = normalizeEndpoint(baseWithoutSlash);
+  attempts.unshift(normalized);
 
   return attempts
     .map((url) => url.replace(/\/+$/, ""))
     .filter((value, index, self) => value && self.indexOf(value) === index);
+}
+
+function normalizeEndpoint(endpoint) {
+  const trimmed = (endpoint ?? "").trim();
+  if (!trimmed) {
+    throw new Error("Endpoint de Groq no configurado.");
+  }
+  const cleaned = trimmed.replace(/\/+$/, "");
+  const lower = cleaned.toLowerCase();
+  if (OPENAI_SUFFIXES.some((suffix) => lower.endsWith(suffix))) {
+    return cleaned;
+  }
+  return `${cleaned}/chat/completions`;
+}
+
+function shouldUseOpenAIStyle(endpoint) {
+  try {
+    const parsed = endpoint.startsWith("http") ? new URL(endpoint) : new URL(`https://${endpoint}`);
+    const host = parsed.hostname.toLowerCase();
+    return host.includes("groq") || host.includes("openrouter") || host.includes("openai");
+  } catch (_err) {
+    return true;
+  }
 }
 
 function formatGroqError(response, detail) {

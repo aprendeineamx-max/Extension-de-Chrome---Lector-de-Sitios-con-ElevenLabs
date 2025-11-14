@@ -1,4 +1,4 @@
-const state = {
+﻿const state = {
   config: null,
   voices: [],
   selectedVoiceId: null,
@@ -6,6 +6,8 @@ const state = {
   conversation: [],
   audioHistory: []
 };
+
+const MAX_AUDIO_HISTORY_ITEMS = 12;
 
 const ENGLISH_LANGUAGE_KEYS = ["english", "en", "inglés", "ingles"];
 const MEXICAN_KEYWORDS = ["mexico", "méxico", "mexican", "latam", "latino", "latina"];
@@ -100,7 +102,7 @@ function bindEvents() {
 async function loadConfig() {
   const response = await sendMessage("GET_CONFIG");
   if (!response.success) {
-    showToast(`No se pudo cargar la configuración: ${response.error}`);
+    showToast(`No se pudo cargar la configuraciÃ³n: ${response.error}`);
     return;
   }
   state.config = response.data;
@@ -221,7 +223,7 @@ function prioritizeMexicanVoices(list = []) {
 
 function isEnglishLanguage(langKey = "") {
   const normalized = normalizeForComparison(langKey);
-  return ENGLISH_LANGUAGE_KEYS.some((entry) => normalized.includes(normalizeForComparison(entry)));
+const ENGLISH_LANGUAGE_KEYS = ["english", "en", "inglés", "ingles"];
 }
 
 function isSpanishLanguage(langKey = "") {
@@ -307,7 +309,7 @@ async function readPage() {
     skipUrls: elements.skipUrlsToggle.checked
   });
   if (!content) return;
-  await synthesizeText(content.text, "Lectura de página completa");
+  await synthesizeText(content.text, "Lectura de pÃ¡gina completa");
 }
 
 async function readSelection() {
@@ -318,10 +320,10 @@ async function readSelection() {
   if (!content) return;
   const text = content.selection?.trim();
   if (!text) {
-    showToast("No hay texto seleccionado en la pestaña.");
+    showToast("No hay texto seleccionado en la pestaÃ±a.");
     return;
   }
-  await synthesizeText(text, "Lectura de selección");
+  await synthesizeText(text, "Lectura de selecciÃ³n");
 }
 
 async function readCustom() {
@@ -337,9 +339,9 @@ async function synthesizeText(text, contextLabel) {
   showLoading(`Generando audio (${contextLabel})...`);
   const speed = parseFloat(elements.speedRange.value);
   const tone = elements.toneSelect.value;
-  
+
   const voiceSettings = getVoiceSettingsForTone(tone);
-  
+
   const response = await sendMessage("SYNTHESIZE_TEXT", {
     text,
     voiceId: elements.voiceSelect.value,
@@ -352,7 +354,7 @@ async function synthesizeText(text, contextLabel) {
     showToast(`Error al generar audio: ${response.error}`);
     return;
   }
-  const { base64, format, fileName } = response.data;
+  const { base64, format, fileName, historyEntry } = response.data;
   const src = `data:audio/${format};base64,${base64}`;
   elements.audioPlayer.src = src;
   elements.audioPlayer.playbackRate = speed;
@@ -364,9 +366,17 @@ async function synthesizeText(text, contextLabel) {
     console.warn("No se pudo reproducir automáticamente el audio", error);
   }
   state.lastAudio = { src, fileName, format, speed, tone, contextLabel };
-  
-  await saveAudioToHistory({ src, fileName, format, speed, tone, contextLabel, timestamp: Date.now() });
-  
+
+  addAudioHistoryEntry(
+    historyEntry ?? {
+      base64,
+      format,
+      fileName,
+      contextLabel,
+      createdAt: new Date().toISOString()
+    }
+  );
+
   showToast("Audio generado y reproduciéndose.");
 }
 
@@ -428,7 +438,7 @@ async function handleCloneVoice() {
     showToast("Adjunta al menos un archivo de audio.");
     return;
   }
-  showLoading("Enviando archivos para clonación...");
+  showLoading("Enviando archivos para clonaciÃ³n...");
   const serialized = await Promise.all(
     files.map(async (file) => ({
       name: file.name,
@@ -443,7 +453,7 @@ async function handleCloneVoice() {
   });
   hideLoading();
   if (!response.success) {
-    showToast(`Fallo en la clonación: ${response.error}`);
+    showToast(`Fallo en la clonaciÃ³n: ${response.error}`);
     return;
   }
   elements.cloneVoiceDialog.close();
@@ -459,7 +469,7 @@ async function requestPageContent(options = {}) {
   try {
     activeTab = await getActiveTab();
   } catch (error) {
-    showToast(`No se pudo acceder a la pestaña activa: ${error.message}`);
+    showToast(`No se pudo acceder a la pestaÃ±a activa: ${error.message}`);
     return null;
   }
   const tabId = activeTab?.id ?? null;
@@ -506,7 +516,7 @@ async function playSummary() {
 async function sendConversationMessage() {
   const text = elements.conversationInput.value.trim();
   if (!text) {
-    showToast("Escribe un mensaje para continuar la conversación.");
+    showToast("Escribe un mensaje para continuar la conversaciÃ³n.");
     return;
   }
   appendConversationEntry("user", text);
@@ -521,7 +531,7 @@ async function requestConversationReply() {
     activeTab = await getActiveTab();
   } catch (error) {
     hideLoading();
-    showToast(`Error al obtener pestaña activa: ${error.message}`);
+    showToast(`Error al obtener pestaÃ±a activa: ${error.message}`);
     return;
   }
   const response = await sendMessage("CONVERSATION_REPLY", {
@@ -530,7 +540,7 @@ async function requestConversationReply() {
   });
   hideLoading();
   if (!response.success) {
-    showToast(`Error en la conversación: ${response.error}`);
+    showToast(`Error en la conversaciÃ³n: ${response.error}`);
     return;
   }
   appendConversationEntry("assistant", response.data);
@@ -541,7 +551,7 @@ function appendConversationEntry(role, content) {
   state.conversation.push({ role, content });
   const entry = document.createElement("div");
   entry.className = "conversation-entry";
-  entry.innerHTML = `<strong>${role === "user" ? "Tú" : "Asistente"}:</strong> ${content}`;
+  entry.innerHTML = `<strong>${role === "user" ? "TÃº" : "Asistente"}:</strong> ${content}`;
   elements.conversationHistory.appendChild(entry);
   elements.conversationHistory.scrollTop = elements.conversationHistory.scrollHeight;
 }
@@ -549,7 +559,7 @@ function appendConversationEntry(role, content) {
 async function toggleRecording() {
   if (mediaRecorder?.state === "recording") {
     mediaRecorder.stop();
-    elements.micToggle.textContent = "🎤 Grabar";
+    elements.micToggle.textContent = "ðŸŽ¤ Grabar";
     return;
   }
   try {
@@ -578,16 +588,16 @@ async function toggleRecording() {
       const transcription = response.data.text?.trim();
       if (transcription) {
         elements.conversationInput.value = transcription;
-        showToast("Transcripción lista, revisa el campo de mensaje.");
+        showToast("TranscripciÃ³n lista, revisa el campo de mensaje.");
       } else {
         showToast("No se obtuvo texto del audio grabado.");
       }
     };
     mediaRecorder.start();
-    elements.micToggle.textContent = "⏹️ Detener";
+    elements.micToggle.textContent = "â¹ï¸ Detener";
     showToast("Grabando... pulsa de nuevo para detener.");
   } catch (error) {
-    showToast(`No se pudo iniciar la grabación: ${error.message}`);
+    showToast(`No se pudo iniciar la grabaciÃ³n: ${error.message}`);
   }
 }
 
@@ -602,7 +612,7 @@ async function resetConversation() {
     return;
   }
   await sendMessage("RESET_MEMORY", { tabId: activeTab?.id });
-  showToast("Conversación reiniciada.");
+  showToast("ConversaciÃ³n reiniciada.");
 }
 
 function showLoading(message) {
@@ -668,10 +678,12 @@ function detectMexicanVoice(voice, extra = {}) {
     .filter(Boolean)
     .map((value) => normalizeForComparison(value))
     .join(" ");
+
   return MEXICAN_KEYWORDS.some((keyword) =>
     haystack.includes(normalizeForComparison(keyword))
   );
 }
+
 
 function normalizeForComparison(value = "") {
   return value
@@ -714,17 +726,15 @@ function blobToBase64(blob) {
 async function loadAudioHistory() {
   const response = await sendMessage("GET_AUDIO_HISTORY");
   if (response.success && response.data) {
-    state.audioHistory = response.data;
+    state.audioHistory = response.data.map(normalizeHistoryEntry).slice(0, MAX_AUDIO_HISTORY_ITEMS);
     renderAudioHistory();
   }
 }
 
-async function saveAudioToHistory(audioData) {
-  state.audioHistory.unshift(audioData);
-  if (state.audioHistory.length > 50) {
-    state.audioHistory = state.audioHistory.slice(0, 50);
-  }
-  await sendMessage("SAVE_AUDIO_HISTORY", { history: state.audioHistory });
+function addAudioHistoryEntry(entry) {
+  const normalized = normalizeHistoryEntry(entry);
+  state.audioHistory.unshift(normalized);
+  state.audioHistory = state.audioHistory.slice(0, MAX_AUDIO_HISTORY_ITEMS);
   renderAudioHistory();
 }
 
@@ -737,14 +747,15 @@ function renderAudioHistory() {
   state.audioHistory.forEach((audio, index) => {
     const item = document.createElement("div");
     item.className = "audio-history-item";
-    const date = new Date(audio.timestamp).toLocaleString("es-ES");
+    const date = formatHistoryTimestamp(audio.timestamp);
+    const source = audio.src || buildAudioSrc(audio.base64, audio.format);
     item.innerHTML = `
       <div class="audio-history-info">
         <strong>${audio.contextLabel || "Audio"}</strong>
         <span class="audio-history-meta">${date} • ${audio.format?.toUpperCase() || "MP3"}</span>
       </div>
       <div class="audio-history-actions">
-        <audio controls src="${audio.src}" style="width: 200px; height: 32px;"></audio>
+        <audio controls src="${source ?? ""}" style="width: 200px; height: 32px;"></audio>
         <button class="download-btn" data-index="${index}">Descargar</button>
       </div>
     `;
@@ -759,8 +770,13 @@ function renderAudioHistory() {
 function downloadAudioFromHistory(index) {
   const audio = state.audioHistory[index];
   if (!audio) return;
+  const source = audio.src || buildAudioSrc(audio.base64, audio.format);
+  if (!source) {
+    showToast("No se encontró el audio en el historial.");
+    return;
+  }
   const link = document.createElement("a");
-  link.href = audio.src;
+  link.href = source;
   link.download = audio.fileName || "lectura.mp3";
   document.body.appendChild(link);
   link.click();
@@ -768,6 +784,34 @@ function downloadAudioFromHistory(index) {
 }
 
 
+function normalizeHistoryEntry(entry = {}) {
+  const format = entry.format || "mp3";
+  const base64 = entry.base64 || "";
+  const src = entry.src || (base64 ? buildAudioSrc(base64, format) : "");
+  return {
+    id: entry.id || `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    fileName: entry.fileName || `lectura.${format}`,
+    format,
+    base64,
+    src,
+    contextLabel: entry.contextLabel || entry.sourceLabel || "Audio",
+    timestamp: entry.createdAt || entry.timestamp || Date.now()
+  };
+}
+
+function buildAudioSrc(base64, format = "mp3") {
+  if (!base64) return "";
+  return `data:audio/${format};base64,${base64}`;
+}
+
+function formatHistoryTimestamp(timestamp) {
+  if (!timestamp) return "Sin fecha";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return "Sin fecha";
+  }
+  return date.toLocaleString("es-ES");
+}
 function getActiveTab() {
   return new Promise((resolve, reject) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -779,4 +823,17 @@ function getActiveTab() {
     });
   });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 

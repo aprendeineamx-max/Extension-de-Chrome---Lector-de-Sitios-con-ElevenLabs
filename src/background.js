@@ -28,6 +28,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       });
       const base64 = await blobToBase64(audio.blob);
       if (tab?.id != null) {
+        await ensureContentScriptInjected(tab.id);
         chrome.tabs.sendMessage(tab.id, {
           type: "PLAY_AUDIO",
           payload: {
@@ -56,6 +57,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     } catch (error) {
       console.error("Error al leer selección", error);
       if (tab?.id != null) {
+        try {
+          await ensureContentScriptInjected(tab.id);
+        } catch (_err) {
+          // ignoramos páginas donde no podemos inyectar el script
+        }
         chrome.tabs.sendMessage(tab.id, {
           type: "SHOW_ERROR",
           message: `No se pudo generar audio: ${error.message}`
@@ -196,6 +202,7 @@ function handleRequestPageContent(tabId, options, sendResponse) {
       return;
     }
     const config = await getConfig();
+    await ensureContentScriptInjected(tab.id);
     chrome.tabs.sendMessage(
       tab.id,
       {
@@ -250,6 +257,7 @@ async function handleTranscription({ audioBase64, provider, language }) {
 }
 
 async function requestSiteContext(tabId, config) {
+  await ensureContentScriptInjected(tabId);
   return new Promise((resolve) => {
     chrome.tabs.sendMessage(
       tabId,
@@ -389,6 +397,26 @@ function resolveAutoDownloadPreferences(config) {
     enabled: Boolean(enabled),
     folder: sanitizeFolder(folder)
   };
+}
+
+async function ensureContentScriptInjected(tabId) {
+  if (!tabId || !chrome.scripting?.executeScript) {
+    return;
+  }
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["src/content.js"]
+    });
+  } catch (error) {
+    const message = error?.message ?? "";
+    if (
+      !message.includes("Cannot access contents of url") &&
+      !message.includes("The extensions gallery cannot be scripted")
+    ) {
+      console.debug("No se pudo inyectar el content script en la pestaA�a", error);
+    }
+  }
 }
 
 function buildContentOptions(overrides = {}, config) {
