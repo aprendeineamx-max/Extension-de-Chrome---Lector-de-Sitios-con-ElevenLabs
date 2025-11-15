@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Popup Harness</title>
+    <style>
+      body {
+        margin: 0;
+      }
+    </style>
+    <script type="module">
+      const response = await fetch("../../src/popup/popup.html");
+      const originalHtml = await response.text();
+      const parser = new DOMParser();
+      const parsed = parser.parseFromString(originalHtml, "text/html");
+
+      const base = parsed.createElement("base");
+      base.setAttribute("href", "../../src/popup/");
+      parsed.head.prepend(base);
+
+      const stub = parsed.createElement("script");
+      stub.setAttribute("src", "../../tests/harness/stubs/chrome-stubs.js");
+      const popupScript = parsed.querySelector('script[type="module"][src="popup.js"]');
+      popupScript?.parentNode?.insertBefore(stub, popupScript);
+
+      const finalHtml = "<!doctype html>" + parsed.documentElement.outerHTML;
+      document.open();
+      document.write(finalHtml);
+      document.close();
+    </script>
+  </head>
+  <body>
+    Cargando…
+  </body>
+</html>
