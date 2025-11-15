@@ -89,6 +89,8 @@
           <select id="sttProvider">
             <option value="huggingface">Hugging Face (Whisper)</option>
             <option value="elevenlabs">ElevenLabs Scribe</option>
+            <option value="openai">OpenAI Whisper (API)</option>
+            <option value="azure">Azure Speech to Text</option>
           </select>
         </label>
         <label>
@@ -103,6 +105,22 @@
           API Key Hugging Face
           <input id="huggingFaceKey" type="text" />
         </label>
+        <label>
+          OpenAI API Key (Whisper)
+          <input id="sttOpenAIKey" type="text" />
+        </label>
+        <label>
+          Azure Speech Key
+          <input id="sttAzureKey" type="text" />
+        </label>
+        <label>
+          Azure Region
+          <input id="sttAzureRegion" type="text" placeholder="eastus" />
+        </label>
+        <label>
+          Azure Deployment ID (opcional)
+          <input id="sttAzureDeployment" type="text" />
+        </label>
       </section>
 
       <section>
@@ -116,6 +134,38 @@
           <input id="ttsSampleRate" type="number" min="8000" max="48000" />
         </label>
       </section>
+
+      <section>
+
+        <h2>Traduccion en vivo</h2>
+
+        <label class="checkbox">
+
+          <input id="liveTranslationEnabled" type="checkbox" />
+
+          Activar traduccion automatica tras transcribir audio
+
+        </label>
+
+        <label>
+
+          Idioma destino (ISO)
+
+          <input id="liveTranslationTarget" type="text" placeholder="es" />
+
+        </label>
+
+        <label class="checkbox">
+
+          <input id="liveTranslationAutoPlay" type="checkbox" />
+
+          Reproducir traduccion con ElevenLabs automaticamente
+
+        </label>
+
+      </section>
+
+
 
       <section>
         <h2>Descarga automática</h2>

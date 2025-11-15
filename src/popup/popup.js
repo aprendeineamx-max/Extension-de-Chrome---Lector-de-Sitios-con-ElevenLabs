@@ -769,8 +769,17 @@ async function toggleRecording() {
       }
       const transcription = response.data.text?.trim();
       if (transcription) {
+
         elements.conversationInput.value = transcription;
-        showToast("TranscripciÃ³n lista, revisa el campo de mensaje.");
+
+        showToast("Transcripción lista, revisa el campo de mensaje.");
+
+        if (shouldRunLiveTranslation()) {
+
+          await runLiveTranslationPipeline(transcription);
+
+        }
+
       } else {
         showToast("No se obtuvo texto del audio grabado.");
       }
@@ -1129,4 +1138,35 @@ function getActiveTab() {
 
 
 
+
+
+
+function shouldRunLiveTranslation() {
+  return Boolean(state.config?.liveTranslation?.enabled && state.config?.liveTranslation?.targetLanguage);
+}
+
+async function runLiveTranslationPipeline(originalText) {
+  const target = state.config?.liveTranslation?.targetLanguage?.trim() || "es";
+  try {
+    showLoading(`Traduciendo a ${target}...`);
+    const response = await sendMessage("TRANSLATE_TEXT", { text: originalText, targetLanguage: target });
+    hideLoading();
+    if (!response?.success) {
+      showToast(`No se pudo traducir: ${response?.error ?? "Error desconocido"}`);
+      return;
+    }
+    const translation = typeof response.data === "string" ? response.data : response.data?.text;
+    if (!translation) {
+      showToast("La traduccion no devolvio contenido.");
+      return;
+    }
+    showToast(`Traduccion generada (${target}).`);
+    if (state.config?.liveTranslation?.autoPlayAudio !== false) {
+      await synthesizeText(translation, `Traduccion (${target})`);
+    }
+  } catch (error) {
+    hideLoading();
+    showToast(`No se pudo traducir: ${error.message}`);
+  }
+}
 

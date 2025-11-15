@@ -5,11 +5,18 @@ const ELEVEN_STT_ENDPOINT = "https://api.elevenlabs.io/v1/speech-to-text";
 
 export async function transcribeAudio({ blob, provider, language }) {
   const config = await getConfig();
-  const selectedProvider = provider ?? config.speechToText.provider;
-  if (selectedProvider === "elevenlabs") {
-    return transcribeElevenLabs({ blob, language, config });
+  const selectedProvider = (provider ?? config.speechToText.provider ?? "huggingface").toLowerCase();
+  switch (selectedProvider) {
+    case "elevenlabs":
+      return transcribeElevenLabs({ blob, language, config });
+    case "openai":
+      return transcribeOpenAI({ blob, language, config });
+    case "azure":
+    case "azure_speech":
+      return transcribeAzure({ blob, language, config });
+    default:
+      return transcribeHuggingFace({ blob, language, config });
   }
-  return transcribeHuggingFace({ blob, language, config });
 }
 
 async function transcribeHuggingFace({ blob, language, config }) {
@@ -59,6 +66,60 @@ async function transcribeElevenLabs({ blob, language, config }) {
   }
   const json = await response.json();
   return { text: json.text ?? json?.transcript ?? "" };
+}
+
+async function transcribeOpenAI({ blob, language, config }) {
+  const apiKey = config.openAI?.apiKey?.trim();
+  if (!apiKey) {
+    throw new Error("Configura tu API Key de OpenAI para poder usar Whisper.");
+  }
+  const form = new FormData();
+  form.append("file", blob, "audio.webm");
+  form.append("model", config.speechToText?.openAIModel ?? "whisper-1");
+  form.append("response_format", "json");
+  if (language) {
+    form.append("language", language);
+  }
+  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: form
+  });
+  if (!response.ok) {
+    const detail = await safeJson(response);
+    throw new Error(`Error al transcribir en OpenAI: ${detail?.error?.message ?? response.statusText}`);
+  }
+  const data = await response.json();
+  return { text: data.text ?? "" };
+}
+
+async function transcribeAzure({ blob, language, config }) {
+  const key = config.azureSpeech?.key?.trim();
+  const region = config.azureSpeech?.region?.trim();
+  if (!key || !region) {
+    throw new Error("Configura la clave y región de Azure Speech en las opciones.");
+  }
+  const targetLanguage = language ?? config.speechToText.language ?? "es-ES";
+  const baseUrl = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`;
+  const url = `${baseUrl}?language=${encodeURIComponent(targetLanguage)}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Ocp-Apim-Subscription-Key": key,
+      "Content-Type": "audio/webm; codecs=opus",
+      Accept: "application/json;text/xml"
+    },
+    body: blob
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Azure Speech error: ${response.status} ${detail}`);
+  }
+  const data = await response.json();
+  const textResult = data.DisplayText ?? data.Text ?? data?.RecognitionStatus;
+  return { text: textResult ?? "" };
 }
 
 async function safeJson(response) {

@@ -15,6 +15,18 @@
         use_speaker_boost: true
       }
     },
+    huggingFace: {
+      apiKey: "fake-hf",
+      voiceId: "voice-mx-demo"
+    },
+    openAI: {
+      apiKey: "fake-openai"
+    },
+    azureSpeech: {
+      key: "fake-azure",
+      region: "eastus",
+      deploymentId: "demo"
+    },
     groq: {
       defaultEndpoint: "https://fake-groq-endpoint",
       apiKeys: ["gsk_fake"],
@@ -40,6 +52,11 @@
     autoDownload: {
       enabled: true,
       path: "Audios Generados por Extension"
+    },
+    liveTranslation: {
+      enabled: true,
+      targetLanguage: "es",
+      autoPlayAudio: true
     },
     usageAlerts: {
       elevenLabs: { warningRatio: 0.2 },
@@ -199,6 +216,8 @@
         return { success: true, data: "Resumen simulado para el contenido proporcionado." };
       case "RESET_MEMORY":
         return { success: true };
+      case "TRANSLATE_TEXT":
+        return { success: true, data: { text: `${payload.text} (traducido)` } };
       case "GET_USAGE_STATUS":
         return { success: true, data: structuredClone(harnessState.usageStatus) };
       case "REFRESH_USAGE_STATUS":

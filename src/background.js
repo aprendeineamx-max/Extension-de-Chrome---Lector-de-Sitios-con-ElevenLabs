@@ -1,6 +1,6 @@
 import { ensureConfig, getConfig, setConfig } from "./utils/config.js";
 import { listVoices, synthesizeSpeech, createVoice, cloneVoice } from "./services/elevenlabs.js";
-import { summarizeContent, conversationalReply } from "./services/groq.js";
+import { summarizeContent, conversationalReply, translateText } from "./services/groq.js";
 import { transcribeAudio } from "./services/stt.js";
 import { addAudioHistoryEntry, getAudioHistory } from "./utils/history.js";
 import { getUsageStatus } from "./services/usage.js";
@@ -110,6 +110,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "SUMMARIZE_CONTENT":
       handleSummarize(payload)
         .then((summary) => sendResponse({ success: true, data: summary }))
+        .catch((error) => sendResponse({ success: false, error: error.message }));
+      return true;
+    case "TRANSLATE_TEXT":
+      handleTranslate(payload)
+        .then((translation) => sendResponse({ success: true, data: translation }))
         .catch((error) => sendResponse({ success: false, error: error.message }));
       return true;
     case "CONVERSATION_REPLY":
@@ -454,5 +459,15 @@ async function handleSaveAudioHistory(payload) {
 
 async function handleUsageStatus(forceRefresh) {
   return getUsageStatus(Boolean(forceRefresh));
+}
+
+async function handleTranslate(payload) {
+  const text = payload?.text?.trim();
+  if (!text) {
+    throw new Error("No hay texto para traducir.");
+  }
+  const targetLanguage = payload?.targetLanguage?.trim() || "es";
+  const translation = await translateText({ text, targetLanguage });
+  return { text: translation, targetLanguage };
 }
 

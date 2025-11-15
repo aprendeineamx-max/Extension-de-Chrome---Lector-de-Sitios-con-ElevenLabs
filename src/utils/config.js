@@ -57,10 +57,19 @@ export const DEFAULT_CONFIG = {
     apiKey: "",
     voiceId: "JYyJjNPfmNJdaby8LdZs"
   },
+  openAI: {
+    apiKey: ""
+  },
+  azureSpeech: {
+    key: "",
+    region: "",
+    deploymentId: ""
+  },
   speechToText: {
     provider: "huggingface",
     model: "openai/whisper-large-v2",
-    language: "es"
+    language: "es",
+    openAIModel: "whisper-1"
   },
   textToSpeech: {
     format: "mp3",
@@ -89,6 +98,11 @@ export const DEFAULT_CONFIG = {
   autoDownload: {
     enabled: true,
     path: "Audios Generados por Extension"
+  },
+  liveTranslation: {
+    enabled: false,
+    targetLanguage: "es",
+    autoPlayAudio: true
   },
   usageAlerts: {
     elevenLabs: {

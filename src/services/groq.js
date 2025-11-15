@@ -15,6 +15,22 @@ export async function summarizeContent({ title, text, language = "es" }) {
   return result.text.trim();
 }
 
+export async function translateText({ text, targetLanguage = "es" }) {
+  const prompt = [
+    {
+      role: "user",
+      content: `Traduce el siguiente texto al idioma ${targetLanguage}. Mantener el formato original si hay listas o parrafos. Texto:
+${text}`
+    }
+  ];
+  const result = await callGroq({
+    messages: prompt,
+    system: "Eres un experto traductor. Devuelves unicamente la traduccion natural al idioma solicitado sin comentarios adicionales.",
+    maxTokens: 400
+  });
+  return result.text.trim();
+}
+
 export async function conversationalReply({ conversation, siteContext }) {
   const messages = conversation.map((entry) => ({
     role: entry.role,

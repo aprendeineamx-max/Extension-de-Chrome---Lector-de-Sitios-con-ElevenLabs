@@ -31,6 +31,10 @@ function cacheElements() {
   elements.usageElevenThreshold = document.getElementById("usageElevenThreshold");
   elements.usageGroqThreshold = document.getElementById("usageGroqThreshold");
   elements.sttProvider = document.getElementById("sttProvider");
+  elements.sttOpenAIKey = document.getElementById("sttOpenAIKey");
+  elements.sttAzureKey = document.getElementById("sttAzureKey");
+  elements.sttAzureRegion = document.getElementById("sttAzureRegion");
+  elements.sttAzureDeployment = document.getElementById("sttAzureDeployment");
   elements.sttModel = document.getElementById("sttModel");
   elements.sttLanguage = document.getElementById("sttLanguage");
   elements.huggingFaceKey = document.getElementById("huggingFaceKey");
@@ -40,6 +44,9 @@ function cacheElements() {
   elements.downloadPath = document.getElementById("downloadPath");
   elements.enableOpenRouter = document.getElementById("enableOpenRouter");
   elements.enableN8N = document.getElementById("enableN8N");
+  elements.liveTranslationEnabled = document.getElementById("liveTranslationEnabled");
+  elements.liveTranslationTarget = document.getElementById("liveTranslationTarget");
+  elements.liveTranslationAutoPlay = document.getElementById("liveTranslationAutoPlay");
   elements.restoreDefaults = document.getElementById("restoreDefaults");
   elements.saveConfig = document.getElementById("saveConfig");
   elements.toast = document.getElementById("toast");
@@ -78,12 +85,20 @@ function populate(config) {
   elements.sttModel.value = config.speechToText.model ?? "";
   elements.sttLanguage.value = config.speechToText.language ?? "es";
   elements.huggingFaceKey.value = config.huggingFace.apiKey ?? "";
+  elements.sttOpenAIKey.value = config.openAI?.apiKey ?? "";
+  elements.sttAzureKey.value = config.azureSpeech?.key ?? "";
+  elements.sttAzureRegion.value = config.azureSpeech?.region ?? "";
+  elements.sttAzureDeployment.value = config.azureSpeech?.deploymentId ?? "";
 
   elements.ttsFormat.value = config.textToSpeech.format ?? "mp3";
   elements.ttsSampleRate.value = config.textToSpeech.sampleRate ?? 44100;
 
   elements.enableAutoDownload.checked = Boolean(config.autoDownload?.enabled);
   elements.downloadPath.value = config.autoDownload?.path ?? "Audios Generados por Extension";
+
+  elements.liveTranslationEnabled.checked = Boolean(config.liveTranslation?.enabled);
+  elements.liveTranslationTarget.value = config.liveTranslation?.targetLanguage ?? "es";
+  elements.liveTranslationAutoPlay.checked = config.liveTranslation?.autoPlayAudio ?? true;
 
   const alerts = config.usageAlerts ?? DEFAULT_CONFIG.usageAlerts;
   elements.usageElevenThreshold.value = Math.round((alerts?.elevenLabs?.warningRatio ?? 0.2) * 100);
@@ -123,11 +138,20 @@ function collectConfig() {
     speechToText: {
       provider: elements.sttProvider.value,
       model: elements.sttModel.value.trim(),
-      language: elements.sttLanguage.value.trim() || "es"
+      language: elements.sttLanguage.value.trim() || "es",
+      openAIModel: elements.sttModel.value.trim() || "whisper-1"
     },
     huggingFace: {
       ...DEFAULT_CONFIG.huggingFace,
       apiKey: elements.huggingFaceKey.value.trim()
+    },
+    openAI: {
+      apiKey: elements.sttOpenAIKey.value.trim()
+    },
+    azureSpeech: {
+      key: elements.sttAzureKey.value.trim(),
+      region: elements.sttAzureRegion.value.trim(),
+      deploymentId: elements.sttAzureDeployment.value.trim()
     },
     textToSpeech: {
       format: elements.ttsFormat.value.trim() || "mp3",
@@ -136,6 +160,11 @@ function collectConfig() {
     autoDownload: {
       enabled: elements.enableAutoDownload.checked,
       path: elements.downloadPath.value.trim() || "Audios Generados por Extension"
+    },
+    liveTranslation: {
+      enabled: elements.liveTranslationEnabled.checked,
+      targetLanguage: elements.liveTranslationTarget.value.trim() || "es",
+      autoPlayAudio: elements.liveTranslationAutoPlay.checked
     },
     usageAlerts: {
       elevenLabs: {
