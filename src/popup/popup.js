@@ -1,3 +1,5 @@
+import { getUsageStatus } from "../services/usage.js";
+
 const state = {
   config: null,
   voices: [],
@@ -922,16 +924,21 @@ function getUsageWarningRatio(provider) {
   return 0.2;
 }
 
-async function loadUsageStatus({ force = false } = {}) {
-  const response = await sendMessage(force ? "REFRESH_USAGE_STATUS" : "GET_USAGE_STATUS");
-  if (!response?.success) {
-    showToast(`No se pudo obtener los créditos: ${response?.error ?? "Error desconocido"}`);
-    return;
-  }
-  state.usageStatus = response.data;
-  renderUsageStatus();
-}
-
+async function loadUsageStatus({ force = false } = {}) {
+  try {
+    const data = await getUsageStatus(force);
+    state.usageStatus = data;
+    renderUsageStatus();
+  } catch (error) {
+    state.usageStatus = {
+      elevenLabs: { success: false, error: error.message },
+      groq: { success: false, error: error.message }
+    };
+    renderUsageStatus();
+    showToast(`No se pudo obtener los crÃ©ditos: ${error.message}`);
+  }
+}
+
 function renderUsageStatus() {
   const usage = state.usageStatus;
   if (!usage) {

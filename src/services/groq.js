@@ -261,7 +261,6 @@ function buildEndpointAttempts(endpoint) {
   }
   attemptsSet.add(base + "/chat/completions");
   attemptsSet.add(base + "/v1/chat/completions");
-  attemptsSet.add(base + "/completions");
 
   if (base !== baseWithoutV1) {
     attemptsSet.add(baseWithoutV1 + "/chat/completions");
