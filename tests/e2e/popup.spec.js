@@ -9,6 +9,8 @@ test.describe("Popup workflow (harness)", () => {
     await page.goto(harnessUrl);
     await waitForVoices(page);
     await page.evaluate(() => window.__popupTestHooks.reset());
+    await expect(page.locator("#usageElevenValue")).not.toHaveText(/Cargando/i);
+    await expect(page.locator("#usageGroqValue")).not.toHaveText(/Cargando/i);
   });
 
   test("genera audio desde texto personalizado y lo almacena en el historial", async ({ page }) => {

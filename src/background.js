@@ -3,6 +3,7 @@ import { listVoices, synthesizeSpeech, createVoice, cloneVoice } from "./service
 import { summarizeContent, conversationalReply } from "./services/groq.js";
 import { transcribeAudio } from "./services/stt.js";
 import { addAudioHistoryEntry, getAudioHistory } from "./utils/history.js";
+import { getUsageStatus } from "./services/usage.js";
 
 const CONTEXT_MENU_READ_SELECTION = "phillips-read-selection";
 const sessionMemory = new Map();
@@ -124,6 +125,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "GET_AUDIO_HISTORY":
       getAudioHistory()
         .then((history) => sendResponse({ success: true, data: history }))
+        .catch((error) => sendResponse({ success: false, error: error.message }));
+      return true;
+    case "GET_USAGE_STATUS":
+      handleUsageStatus(false)
+        .then((data) => sendResponse({ success: true, data }))
+        .catch((error) => sendResponse({ success: false, error: error.message }));
+      return true;
+    case "REFRESH_USAGE_STATUS":
+      handleUsageStatus(true)
+        .then((data) => sendResponse({ success: true, data }))
         .catch((error) => sendResponse({ success: false, error: error.message }));
       return true;
     case "SAVE_AUDIO_HISTORY":
@@ -439,5 +450,9 @@ async function handleSaveAudioHistory(payload) {
   }
   const { saveAudioHistory } = await import("./utils/history.js");
   await saveAudioHistory(history);
+}
+
+async function handleUsageStatus(forceRefresh) {
+  return getUsageStatus(Boolean(forceRefresh));
 }
 

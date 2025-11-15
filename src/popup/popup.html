@@ -80,6 +80,32 @@
       </section>
 
       <section>
+        <h2>Créditos disponibles</h2>
+        <div class="usage-grid">
+          <div class="usage-card" id="usageElevenCard">
+            <div class="usage-card-header">
+              <strong>ElevenLabs</strong>
+              <span class="usage-status" id="usageElevenStatus"></span>
+            </div>
+            <p class="usage-value" id="usageElevenValue">Cargando...</p>
+            <p class="usage-meta" id="usageElevenMeta"></p>
+          </div>
+          <div class="usage-card" id="usageGroqCard">
+            <div class="usage-card-header">
+              <strong>Groq / Modal</strong>
+              <span class="usage-status" id="usageGroqStatus"></span>
+            </div>
+            <p class="usage-value" id="usageGroqValue">Cargando...</p>
+            <p class="usage-meta" id="usageGroqMeta"></p>
+          </div>
+        </div>
+        <div class="usage-actions">
+          <button id="refreshUsage" type="button">Actualizar créditos</button>
+          <span id="usageUpdatedAt" class="usage-updated"></span>
+        </div>
+      </section>
+
+      <section>
         <h2>Conexion Groq / Modal</h2>
         <div class="field-group stacked">
           <label for="groqProfileSelect">Perfil activo</label>
@@ -166,5 +192,6 @@
     <script type="module" src="popup.js"></script>
   </body>
 </html>
+
 
 

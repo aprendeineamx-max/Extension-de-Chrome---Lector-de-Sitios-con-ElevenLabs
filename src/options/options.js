@@ -28,6 +28,8 @@ function cacheElements() {
   elements.groqApiKeys = document.getElementById("groqApiKeys");
   elements.groqProxyToken = document.getElementById("groqProxyToken");
   elements.groqProxyToken = document.getElementById("groqProxyToken");
+  elements.usageElevenThreshold = document.getElementById("usageElevenThreshold");
+  elements.usageGroqThreshold = document.getElementById("usageGroqThreshold");
   elements.sttProvider = document.getElementById("sttProvider");
   elements.sttModel = document.getElementById("sttModel");
   elements.sttLanguage = document.getElementById("sttLanguage");
@@ -83,6 +85,10 @@ function populate(config) {
   elements.enableAutoDownload.checked = Boolean(config.autoDownload?.enabled);
   elements.downloadPath.value = config.autoDownload?.path ?? "Audios Generados por Extension";
 
+  const alerts = config.usageAlerts ?? DEFAULT_CONFIG.usageAlerts;
+  elements.usageElevenThreshold.value = Math.round((alerts?.elevenLabs?.warningRatio ?? 0.2) * 100);
+  elements.usageGroqThreshold.value = Math.round((alerts?.groq?.warningRatio ?? 0.2) * 100);
+
   elements.enableOpenRouter.checked = Boolean(config.experimental?.enableOpenRouter);
   elements.enableN8N.checked = Boolean(config.experimental?.enableN8NWebhook);
 }
@@ -131,11 +137,24 @@ function collectConfig() {
       enabled: elements.enableAutoDownload.checked,
       path: elements.downloadPath.value.trim() || "Audios Generados por Extension"
     },
+    usageAlerts: {
+      elevenLabs: {
+        warningRatio: percentToRatio(elements.usageElevenThreshold.value)
+      },
+      groq: {
+        warningRatio: percentToRatio(elements.usageGroqThreshold.value)
+      }
+    },
     experimental: {
       enableOpenRouter: elements.enableOpenRouter.checked,
       enableN8NWebhook: elements.enableN8N.checked
     }
   };
+}
+
+function percentToRatio(value) {
+  const number = Math.max(1, Math.min(100, Number(value) || 0));
+  return number / 100;
 }
 
 function showToast(message) {

@@ -90,6 +90,14 @@ export const DEFAULT_CONFIG = {
     enabled: true,
     path: "Audios Generados por Extension"
   },
+  usageAlerts: {
+    elevenLabs: {
+      warningRatio: 0.2
+    },
+    groq: {
+      warningRatio: 0.2
+    }
+  },
   experimental: {
     enableOpenRouter: false,
     enableN8NWebhook: false

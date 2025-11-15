@@ -6,7 +6,8 @@ const state = {
   conversation: [],
   audioHistory: [],
   groqProfiles: [],
-  activeGroqProfileId: null
+  activeGroqProfileId: null,
+  usageStatus: null
 };
 
 const MAX_AUDIO_HISTORY_ITEMS = 12;
@@ -24,6 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadConfig();
   await loadVoices();
   await loadAudioHistory();
+  await loadUsageStatus();
 });
 
 function cacheElements() {
@@ -66,6 +68,16 @@ function cacheElements() {
   elements.groqProfileSelect = document.getElementById("groqProfileSelect");
   elements.applyGroqProfile = document.getElementById("applyGroqProfile");
   elements.groqProfileHint = document.getElementById("groqProfileHint");
+  elements.usageElevenCard = document.getElementById("usageElevenCard");
+  elements.usageGroqCard = document.getElementById("usageGroqCard");
+  elements.usageElevenValue = document.getElementById("usageElevenValue");
+  elements.usageGroqValue = document.getElementById("usageGroqValue");
+  elements.usageElevenMeta = document.getElementById("usageElevenMeta");
+  elements.usageGroqMeta = document.getElementById("usageGroqMeta");
+  elements.usageElevenStatus = document.getElementById("usageElevenStatus");
+  elements.usageGroqStatus = document.getElementById("usageGroqStatus");
+  elements.refreshUsage = document.getElementById("refreshUsage");
+  elements.usageUpdatedAt = document.getElementById("usageUpdatedAt");
   elements.conversationHistory = document.getElementById("conversationHistory");
   elements.conversationInput = document.getElementById("conversationInput");
   elements.sendMessage = document.getElementById("sendMessage");
@@ -95,6 +107,7 @@ function bindEvents() {
   elements.copySummary.addEventListener("click", () => copyText(elements.summaryOutput.value));
   elements.groqProfileSelect?.addEventListener("change", () => updateGroqProfileHint());
   elements.applyGroqProfile?.addEventListener("click", () => applyGroqProfile());
+  elements.refreshUsage?.addEventListener("click", () => loadUsageStatus({ force: true }));
   elements.sendMessage.addEventListener("click", () => sendConversationMessage());
   elements.conversationInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -890,6 +903,117 @@ function blobToBase64(blob) {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+function getUsageWarningRatio(provider) {
+  const value = provider === "groq" ? state.config?.usageAlerts?.groq?.warningRatio : state.config?.usageAlerts?.elevenLabs?.warningRatio;
+  if (typeof value === "number") {
+    return Math.min(Math.max(value, 0), 1);
+  }
+  return 0.2;
+}
+
+async function loadUsageStatus({ force = false } = {}) {
+  const response = await sendMessage(force ? "REFRESH_USAGE_STATUS" : "GET_USAGE_STATUS");
+  if (!response?.success) {
+    showToast(`No se pudo obtener los créditos: ${response?.error ?? "Error desconocido"}`);
+    return;
+  }
+  state.usageStatus = response.data;
+  renderUsageStatus();
+}
+
+function renderUsageStatus() {
+  const usage = state.usageStatus;
+  if (!usage) {
+    return;
+  }
+  updateUsageCard(
+    {
+      card: elements.usageElevenCard,
+      value: elements.usageElevenValue,
+      meta: elements.usageElevenMeta,
+      status: elements.usageElevenStatus
+    },
+    usage.elevenLabs,
+    getUsageWarningRatio("elevenLabs")
+  );
+  updateUsageCard(
+    {
+      card: elements.usageGroqCard,
+      value: elements.usageGroqValue,
+      meta: elements.usageGroqMeta,
+      status: elements.usageGroqStatus
+    },
+    usage.groq,
+    getUsageWarningRatio("groq")
+  );
+  if (elements.usageUpdatedAt) {
+    elements.usageUpdatedAt.textContent = usage.fetchedAt ? `Actualizado ${formatRelativeDate(usage.fetchedAt)}` : "";
+  }
+}
+
+function updateUsageCard(targets, data, warningRatio) {
+  const { card, value, meta, status } = targets;
+  if (!card || !value || !meta || !status) {
+    return;
+  }
+  card.classList.remove("usage-warning", "usage-error");
+  if (!data) {
+    value.textContent = "Sin datos";
+    meta.textContent = "";
+    status.textContent = "";
+    return;
+  }
+  if (!data.success) {
+    card.classList.add("usage-error");
+    value.textContent = "Sin datos";
+    meta.textContent = data.error ?? "";
+    status.textContent = "";
+    return;
+  }
+  const limit = typeof data.limit === "number" && data.limit > 0 ? data.limit : null;
+  const used = typeof data.used === "number" ? data.used : 0;
+  const remaining = limit != null ? Math.max(data.remaining ?? limit - used, 0) : null;
+  const ratio = limit != null && limit > 0 ? remaining / limit : null;
+  if (ratio != null && ratio <= warningRatio) {
+    card.classList.add("usage-warning");
+  }
+  status.textContent = ratio != null ? `${formatPercentage(1 - ratio)} usado` : "Uso actual";
+  if (limit != null) {
+    value.textContent = `Restan ${formatPercentage(ratio ?? 0)} (${formatNumber(remaining)} / ${formatNumber(limit)})`;
+    meta.textContent = `Utilizado: ${formatNumber(used)}` + (data.renewsAt ? ` · Renueva ${formatRelativeDate(data.renewsAt)}` : "");
+  } else {
+    value.textContent = `${formatNumber(used)} unidades usadas`;
+    meta.textContent = data.renewsAt ? `Renueva ${formatRelativeDate(data.renewsAt)}` : "";
+  }
+}
+
+function formatNumber(value) {
+  try {
+    return new Intl.NumberFormat("es-MX").format(Math.round(value || 0));
+  } catch (_err) {
+    return String(value ?? 0);
+  }
+}
+
+function formatPercentage(value) {
+  if (value == null) {
+    return "--%";
+  }
+  const pct = Math.max(0, Math.min(100, Math.round((value ?? 0) * 100)));
+  return `${pct}%`;
+}
+
+function formatRelativeDate(timestamp) {
+  if (!timestamp) {
+    return "";
+  }
+  try {
+    return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp));
+  } catch (_err) {
+    return new Date(timestamp).toLocaleString();
+  }
 }
 
 async function loadAudioHistory() {

@@ -41,6 +41,10 @@
       enabled: true,
       path: "Audios Generados por Extension"
     },
+    usageAlerts: {
+      elevenLabs: { warningRatio: 0.2 },
+      groq: { warningRatio: 0.2 }
+    },
     experimental: {
       enableOpenRouter: false,
       enableN8NWebhook: false
@@ -67,7 +71,8 @@
       title: "Documento de prueba",
       text: "Este es un documento de prueba para el popup.",
       selection: "Texto seleccionado de prueba."
-    }
+    },
+    usageStatus: createUsageStatus(),
   };
 
   function structuredClone(value) {
@@ -88,10 +93,19 @@
     return entry;
   }
 
+  function createUsageStatus() {
+    return {
+      fetchedAt: Date.now(),
+      elevenLabs: { success: true, used: 12000, limit: 500000, remaining: 488000, renewsAt: Date.now() + 86400000 },
+      groq: { success: true, used: 32000, limit: 100000, remaining: 68000, renewsAt: Date.now() + 43200000 }
+    };
+  }
+
   window.__popupTestHooks = {
     reset() {
       harnessState.audioHistory = [];
       harnessState.failNextSynthesisMessage = null;
+      harnessState.usageStatus = createUsageStatus();
     },
     failNextSynthesis(message = "Error simulado") {
       harnessState.failNextSynthesisMessage = message;
@@ -185,9 +199,15 @@
         return { success: true, data: "Resumen simulado para el contenido proporcionado." };
       case "RESET_MEMORY":
         return { success: true };
+      case "GET_USAGE_STATUS":
+        return { success: true, data: structuredClone(harnessState.usageStatus) };
+      case "REFRESH_USAGE_STATUS":
+        harnessState.usageStatus = createUsageStatus();
+        return { success: true, data: structuredClone(harnessState.usageStatus) };
       default:
         console.warn("Mensaje no manejado en harness:", type);
         return { success: true };
     }
   }
 })();
+
