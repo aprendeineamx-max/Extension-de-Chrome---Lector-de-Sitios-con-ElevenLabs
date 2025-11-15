@@ -14,8 +14,8 @@ const state = {
 
 const MAX_AUDIO_HISTORY_ITEMS = 12;
 
-const ENGLISH_LANGUAGE_KEYS = ["english", "en", "inglÈs", "ingles"];
-const MEXICAN_KEYWORDS = ["mexico", "mÈxico", "mexican", "latam", "latino", "latina"];
+const ENGLISH_LANGUAGE_KEYS = ["english", "en", "ingles"];
+const MEXICAN_KEYWORDS = ["mexico", "mexican", "latam", "latino", "latina"];
 
 const elements = {};
 let mediaRecorder = null;
@@ -359,7 +359,7 @@ async function renderVoices() {
       const option = document.createElement("option");
       option.value = voice.voice_id;
       const countryStr = voice.displayCountry ? ` (${voice.displayCountry})` : "";
-      const genderStr = voice.displayGender && voice.displayGender !== "unknown" ? ` - ${voice.displayGender}` : "";
+      const genderStr = voice.displayGender && voice.displayGender !== "Sin especificar" ? ` - ${voice.displayGender}` : "";
       const badge = voice.isMexican ? " [MX]" : "";
       option.textContent = `${voice.name}${countryStr}${genderStr}${badge}`;
       optgroup.appendChild(option);
@@ -407,7 +407,7 @@ function prioritizeMexicanVoices(list = []) {
 
 function isEnglishLanguage(langKey = "") {
   const normalized = normalizeForComparison(langKey);
-const ENGLISH_LANGUAGE_KEYS = ["english", "en", "inglÈs", "ingles"];
+  return ENGLISH_LANGUAGE_KEYS.some((keyword) => normalized.includes(keyword));
 }
 
 function isSpanishLanguage(langKey = "") {
@@ -474,8 +474,9 @@ function createVoiceItem(voice) {
   item.className = "voice-item";
   const span = document.createElement("span");
   const countryStr = voice.displayCountry ? ` (${voice.displayCountry})` : "";
+  const genderStr = voice.displayGender && voice.displayGender !== "Sin especificar" ? ` - ${voice.displayGender}` : "";
   const badge = voice.isMexican ? " [MX]" : "";
-  span.textContent = `${voice.name}${countryStr}${badge}`;
+  span.textContent = `${voice.name}${countryStr}${genderStr}${badge}`;
   const useButton = document.createElement("button");
   useButton.textContent = "Usar";
   useButton.addEventListener("click", () => {
@@ -845,14 +846,21 @@ function decorateVoice(voice) {
       : normalizedGender.includes("male") || normalizedGender.includes("masculin")
         ? "male"
         : "unknown";
+  const displayGender =
+    genderKey === "female"
+      ? "Femenino"
+      : genderKey === "male"
+        ? "Masculino"
+        : rawGender || "Sin especificar";
 
   const enriched = {
     ...voice,
     displayLanguage: rawLanguage || formatLanguageLabel(languageKey),
     displayCountry: country,
-    displayGender: rawGender || "unknown",
+    displayGender,
     languageKey,
-    genderKey
+    genderKey,
+    isSpanish: isSpanishLanguage(languageKey)
   };
   enriched.isMexican = detectMexicanVoice(enriched, { accent, description });
   return enriched;
@@ -924,21 +932,36 @@ function getUsageWarningRatio(provider) {
   return 0.2;
 }
 
-async function loadUsageStatus({ force = false } = {}) {
-  try {
-    const data = await getUsageStatus(force);
-    state.usageStatus = data;
-    renderUsageStatus();
-  } catch (error) {
-    state.usageStatus = {
-      elevenLabs: { success: false, error: error.message },
-      groq: { success: false, error: error.message }
-    };
-    renderUsageStatus();
-    showToast(`No se pudo obtener los cr√©ditos: ${error.message}`);
-  }
-}
-
+async function loadUsageStatus({ force = false } = {}) {
+
+  try {
+
+    const data = await getUsageStatus(force);
+
+    state.usageStatus = data;
+
+    renderUsageStatus();
+
+  } catch (error) {
+
+    state.usageStatus = {
+
+      elevenLabs: { success: false, error: error.message },
+
+      groq: { success: false, error: error.message }
+
+    };
+
+    renderUsageStatus();
+
+    showToast(`No se pudo obtener los cr√©ditos: ${error.message}`);
+
+  }
+
+}
+
+
+
 function renderUsageStatus() {
   const usage = state.usageStatus;
   if (!usage) {

@@ -163,11 +163,25 @@ function selectGroqProfile(groq = {}, explicitId) {
 }
 
 function buildUsageEndpoint(endpoint) {
-  const cleaned = endpoint.replace(/\/+$/, "");
-  if (cleaned.toLowerCase().endsWith("/usage")) {
-    return cleaned;
+  const trimmed = (endpoint || "").trim();
+  if (!trimmed) {
+    return "";
   }
-  return `${cleaned}/usage`;
+  let cleaned = trimmed.replace(/\/+$/, "");
+  if (looksLikeModalEndpoint(cleaned) && !/\/v1($|\/)/i.test(cleaned)) {
+    cleaned += "/v1";
+  }
+  if (cleaned.toLowerCase().endsWith("/chat/completions")) {
+    cleaned = cleaned.replace(/\/chat\/completions$/i, "");
+  }
+  if (!cleaned.toLowerCase().endsWith("/usage")) {
+    cleaned += "/usage";
+  }
+  return cleaned;
+}
+
+function looksLikeModalEndpoint(value) {
+  return typeof value === "string" && value.toLowerCase().includes(".modal.run");
 }
 
 async function safeJson(response) {

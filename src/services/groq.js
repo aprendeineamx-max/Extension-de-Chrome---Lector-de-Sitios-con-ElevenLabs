@@ -245,39 +245,34 @@ async function safeJson(response) {
 }
 
 function buildEndpointAttempts(endpoint) {
-  const trimmed = (endpoint || "").trim();
+  const trimmed = (endpoint ?? "").trim();
   if (!trimmed) {
     throw new Error("Endpoint de Groq no configurado.");
   }
 
   const base = trimmed.replace(/\/+$/, "");
   const baseWithoutV1 = base.replace(/\/v1$/i, "");
-  const attemptsSet = new Set();
+  const attempts = [];
+  const addAttempt = (value) => {
+    if (!value) return;
+    const normalized = value.replace(/\/+$/, "");
+    if (!normalized || attempts.includes(normalized)) {
+      return;
+    }
+    attempts.push(normalized);
+  };
 
-  attemptsSet.add(base);
+  addAttempt(normalizeEndpoint(base));
 
-  if (base.slice(-3).toLowerCase() !== "/v1") {
-    attemptsSet.add(base + "/v1");
+  if (baseWithoutV1 && baseWithoutV1 !== base) {
+    addAttempt(normalizeEndpoint(baseWithoutV1));
   }
-  attemptsSet.add(base + "/chat/completions");
-  attemptsSet.add(base + "/v1/chat/completions");
-
-  if (base !== baseWithoutV1) {
-    attemptsSet.add(baseWithoutV1 + "/chat/completions");
-    attemptsSet.add(baseWithoutV1 + "/v1/chat/completions");
-    attemptsSet.add(baseWithoutV1 + "/v1");
-  }
-
-  attemptsSet.add(normalizeEndpoint(base));
 
   if (isGroqHost(base)) {
-    attemptsSet.add("https://api.groq.com/openai/v1/chat/completions");
+    addAttempt("https://api.groq.com/openai/v1/chat/completions");
   }
 
-  const attempts = Array.from(attemptsSet);
-  return attempts
-    .map((url) => url.replace(/\/+$/, ""))
-    .filter((value, index, self) => value && self.indexOf(value) === index);
+  return attempts;
 }
 
 function normalizeEndpoint(endpoint) {
@@ -285,7 +280,8 @@ function normalizeEndpoint(endpoint) {
   if (!trimmed) {
     throw new Error("Endpoint de Groq no configurado.");
   }
-  const cleaned = trimmed.replace(/\/+$/, "");
+  const prepared = ensureModalApiBase(trimmed);
+  const cleaned = prepared.replace(/\/+$/, "");
   const lower = cleaned.toLowerCase();
   for (let i = 0; i < OPENAI_SUFFIXES.length; i += 1) {
     if (lower.endsWith(OPENAI_SUFFIXES[i])) {
@@ -293,6 +289,18 @@ function normalizeEndpoint(endpoint) {
     }
   }
   return cleaned + "/chat/completions";
+}
+
+function ensureModalApiBase(endpoint) {
+  const raw = (endpoint || "").trim();
+  if (!raw) {
+    return raw;
+  }
+  const hasV1Segment = /\/v1($|\/)/i.test(raw);
+  if (!isModalProxyEndpoint(raw) || hasV1Segment) {
+    return raw;
+  }
+  return raw.replace(/\/+$/, "") + "/v1";
 }
 
 function formatGroqError(response, detail, endpoint) {
